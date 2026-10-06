@@ -1,0 +1,261 @@
+# Flutter employee requests — contract and workflow guide
+
+Verified against backend source on 2026-10-06. This file owns request-specific payloads, validation, response models, state transitions, and department manager recommendations.
+
+Read [MOBILE-API.md](MOBILE-API.md) first for connection, bearer authentication, shared errors, attendance, and notifications. Read [MOBILE_BRD.md](MOBILE_BRD.md) for scope and acceptance. All paths here include `/api`; follow the base URL convention in MOBILE-API.md.
+
+## 1. Endpoints and employee boundary
+
+| Method | Path | Access / result |
+| --- | --- | --- |
+| POST | `/api/requests` | Active linked employee submits for self; HTTP 201 request object |
+| GET | `/api/requests/me` | Own requests, newest submitted first; HTTP 200 array |
+| PATCH | `/api/requests/:id/withdraw` | Own pending request only; HTTP 200 updated request |
+| GET | `/api/requests/managed` | Server-authorized department manager queue; HTTP 200 array |
+| PATCH | `/api/requests/:id/manager-review` | Current assigned manager recommendation; HTTP 200 updated pending request |
+
+These require bearer authentication. Submission identity comes from the session, never a client `employeeId`. Use UUID request IDs returned by the API. Send JSON and only allowed fields; DTOs reject extras. Optional fields may be omitted, not set to null unless supported.
+
+There is no single-request GET, edit, employee reopen, request-types discovery, pagination/filter query, attachment upload/download, or leave-balance endpoint. Filter returned lists locally. HR final decisions/reopening and manager assignment are dashboard workflows; employee mobile must not call them. Request detail navigation resolves IDs through own history or the authorized managed queue.
+
+## 2. Request forms and submission bodies
+
+### Type values
+
+| Mobile label | Send as `type` | Form |
+| --- | --- | --- |
+| Normal vacation | `leave` | Full-day date range |
+| Sick | `sick` | Full-day date range |
+| Unpaid | `unpaid` | Full-day date range |
+| Urgent | `urgent` | Full-day date range |
+| Excuse | `excuse` | Date range, minutes, subtype, assigned shift |
+| Mission | `mission` | Full-day date range |
+| Personal holiday (existing compatibility type) | `holiday` | Full-day date range |
+| Forgotten check-out | `forgotten-check-out` | Owned open attendance record and proposed departure |
+
+Send lowercase API values, not display labels. There is no request-types endpoint; maintain this mapping in the client and preserve compatibility when displaying historical entries.
+
+### POST /api/requests: full-day types
+
+```json
+{
+  "type": "sick",
+  "from": "2026-10-05",
+  "to": "2026-10-06",
+  "reason": "Medical appointment and recovery",
+  "attachments": []
+}
+```
+
+Same schema for `leave`, `sick`, `unpaid`, `urgent`, `mission`, and `holiday`:
+
+- `from` and `to`: required real calendar dates, ordered `from <= to`, inclusive range of at most 93 days (`to - from <= 92 days`). `from` cannot be before `employee.startDate`.
+- `reason`: required, trimmed, 5-500 characters. A mobile field labeled Description must still send `reason`.
+- `attachments`: optional; shared attachment rules below.
+- The backend does not restrict these ranges to future dates, working days, or a leave balance. Do not present those restrictions as implemented server validations.
+
+### POST /api/requests: Excuse
+
+```json
+{
+  "type": "excuse",
+  "from": "2026-10-05",
+  "to": "2026-10-05",
+  "durationMinutes": 15,
+  "excuseType": "leaving-early",
+  "shiftId": "<assigned schedule UUID>",
+  "reason": "Appointment",
+  "attachments": []
+}
+```
+
+- Date rules are the same as full-day requests, including the employment start date.
+- `durationMinutes`: required JSON integer, 1-1440, and no longer than the selected shift length. For an overnight shift, compute duration across midnight. Send 15 for the screen label “15 M”; do not send a formatted duration string or decimal hours. A range carries one minutes value, not separately editable durations per date.
+- `excuseType`: required, one of `leaving-early`, `arriving-late`, `during-shift`.
+- `shiftId`: required existing schedule UUID that must equal the employee's current assigned `scheduleId`. Show the assigned shift name and times, not arbitrary schedule choices. Refresh profile/schedule if HR changed the assignment.
+- `reason`: optional, trimmed, maximum 120 characters; omission defaults to an empty string. It is not required to have 5 characters for Excuse. Show the 120-character limit locally.
+- The API stores the shift ID, not a shift-time snapshot; later schedule edits may change the times obtained from `/schedules`.
+- Approval does not rewrite check-in/check-out, cancel lateness, add worked hours, or mark an entire day as leave.
+
+### Attachments for full-day and Excuse requests
+
+Attachments are **inline JSON base64**, not multipart uploads and not URLs:
+
+```json
+{
+  "name": "medical-note.pdf",
+  "mimeType": "application/pdf",
+  "content": "<standard base64 file bytes>"
+}
+```
+
+| Rule | Limit |
+| --- | --- |
+| Number of attachments | 0-3 |
+| Decoded size per file | 1-524288 bytes (512 KiB maximum) |
+| `name` | Required, trimmed, 1-200 characters |
+| `mimeType` | `application/pdf`, `image/png`, or `image/jpeg` |
+| `content` | Standard base64 with valid padding; 4-699052 characters; no data-URL prefix |
+
+Check decoded file size before encoding and reject unsupported picker formats locally. Base64 increases payload size; the production server's JSON limit is 3 MiB. Attachments return inside request objects, including listings, so allow for larger responses. There is no separate request-attachment upload/download/delete endpoint. Decode returned bytes for private local viewing/sharing only at the user's action. The server validates the declared MIME type, base64 format, and size for these attachments; unlike attendance photos, request attachments are not decoded to verify actual file format.
+
+### POST /api/requests: forgotten check-out
+
+```json
+{
+  "type": "forgotten-check-out",
+  "attendanceId": "<owned open attendance UUID>",
+  "proposedCheckOut": "2026-10-05T15:00:00Z",
+  "reason": "Forgot to check out when leaving"
+}
+```
+
+Use an owned open record from attendance history. `attendanceId` is a UUID. Proposed departure must include UTC/offset, be at or after recorded check-in, and not be in the future. `reason` is required and trimmed, 5-500 characters. This type does not accept dates, shift/duration, or attachments. Missing/non-owned attendance returns 404; already closed attendance or a duplicate pending/approved correction request returns 409. Approval rechecks the current attendance record; it can fail if the record was closed meanwhile. Approval creates an audited attendance correction, not GPS/photo evidence.
+
+### Overlap, duplicates, and submission recovery
+
+- Pending and approved requests block overlapping date ranges, even across different full-day types and between full-day requests and Excuse.
+- Two Excuse requests with overlapping dates conflict when both shift ID and excuse subtype match; different subtypes can coexist, but share the monthly minutes/request limit in section 4.
+- Forgotten check-out conflicts only with another pending/approved forgotten check-out request for the same attendance record.
+- Rejected and withdrawn requests permit a new submission subject to current validations. There is no request idempotency key. If POST times out, refresh `/api/requests/me` and reconcile before offering resubmission. A repeated identical pending/approved request normally returns 409 rather than replaying the original success.
+
+### GET /api/requests/me and request response shape
+
+Returns all own requests, newest submission first. No pagination, search, status filter, or individual-request GET endpoint is implemented. Filter the returned array locally for Pending/Approved/Rejected/Withdrawn and request type.
+
+A submission response and each list entry contain the submitted fields plus:
+
+```json
+{
+  "id": "<request UUID>",
+  "employeeId": "<employee UUID>",
+  "employeeName": "Employee Name",
+  "nationalId": "00123456789012",
+  "status": "pending",
+  "submittedAt": "2026-10-05T08:00:00.000Z",
+  "decidedAt": null,
+  "decidedBy": null,
+  "decisionReason": null,
+  "salaryDeductionDays": null,
+  "attendance": null
+}
+```
+
+`attendance` holds the original attendance snapshot for forgotten check-out, otherwise null. `decidedBy` is the reviewer's display name, not a UUID. `decidedAt` and `decisionReason` become populated after a decision. Reasons/attachments are employee-provided content; display as text or files, never execute as markup. Do not send server-managed identity, status, timestamps, deduction, or attendance fields back in a submission.
+
+Current backend behavior for every non-forgotten-check-out type, including Excuse, sick, and mission: **final HR approval deducts 1 salary day; final rejection deducts 3 salary days, once per request regardless of dates or duration**. Pending/withdrawn requests and forgotten check-out have null deduction days. Historical decisions may also have null because deductions were not added retroactively. Display returned `salaryDeductionDays`, never infer an amount from duration or null. Explain current deduction behavior before submission; HR confirmation of this policy is an open release decision in the BRD. Employee accounts cannot fetch payroll reports.
+
+Employees can withdraw their own pending requests but cannot edit them or give final decisions. HR can reopen eligible approved requests as described below; rejected and withdrawn requests remain final. Approved full-day requests affect missing scheduled HR report rows without replacing existing attendance; they do not create check-in records in `/attendance/me`. Approval of Excuse leaves attendance unchanged.
+
+
+## 3. Response model and Flutter details
+
+The request object combines its type-specific submitted fields with these server-managed fields:
+
+| Field | Model behavior |
+| --- | --- |
+| `id`, `employeeId` | UUID strings; keep separate from user ID |
+| `employeeName`, `nationalId` | Submission identity snapshot; national ID remains text |
+| `status` | `pending`, `approved`, `rejected`, `withdrawn` |
+| `submittedAt` | ISO timestamp |
+| `decidedAt`, `decidedBy`, `decisionReason` | Nullable; final reviewer is a display name |
+| `salaryDeductionDays` | Nullable number; use the returned value |
+| `attendance` | Original attendance snapshot for forgotten check-out, otherwise null |
+| `managerStage` | Optional `not-required`, `pending`, `approved`, `rejected`; separate from overall status |
+| `managerEmployeeId`, `managerDepartment` | Optional current routing fields; manager ID may be null |
+| `managerReview` | Optional/null object: `status`, reviewer `employeeId`, `department`, `reviewedBy`, `reviewedAt`, `reason` |
+| `lastChange` | Optional object: `action` (`withdraw`/`reopen`), `reason`, `at`, actor display name `by` |
+
+Historical records may omit workflow fields. Preserve absence rather than inventing manager approval. For a pending record, use `managerStage` to decide whether the recommendation is current; a stored recommendation must not override current server routing. Request attachments, if present, contain inline base64 in list responses.
+
+Implement separate Dart submission variants for date-range, Excuse, and forgotten check-out so incompatible fields cannot leak into strict DTOs. A request response model additionally reads all workflow fields above. Keep a safe display fallback for unknown future types/statuses and disable unsupported mutations. Display dates as calendar dates, timestamps in the company timezone, and forgotten departure using the attendance snapshot's timezone.
+
+Request details show submitted type/dates/minutes/reason/attachments, overall status, manager stage and valid recommendation, HR decision/reason/time, returned deduction days, and latest withdrawal/reopen information. Show the server's employee identity only in authorized manager details. Do not expose a full employee directory to populate these screens.
+
+## 4. Overlap and monthly Excuse allowance
+
+Pending and approved requests reserve their dates/attendance reference; rejected and withdrawn requests do not.
+
+- Overlapping full-day requests conflict, including different types. Full-day/Excuse overlap also conflicts.
+- Two overlapping Excuses conflict when both shift ID and subtype match. Different subtypes may coexist but share the monthly allowance.
+- Forgotten check-out requests conflict only with pending/approved forgotten check-out requests for the same attendance ID, not with time-off ranges.
+
+Excuse has a shared limit of **240 minutes and at most 3 pending/approved requests per requested calendar month** across all subtypes. Exactly 240 minutes and 3 requests are allowed. `durationMinutes` is charged for every date, including non-working dates in the requested range. A cross-month request counts once in each affected month; minutes split according to dates.
+
+Example: 60 minutes per day from October 31 through November 2 reserves 60 minutes/one request in October and 120 minutes/one request in November. Rejection or withdrawal releases the reservation. Manager rejection alone keeps the overall request pending and does not release it. Approval rechecks allowance excluding the request itself.
+
+The server returns 409 on overlap or exceeded allowance without creating a request. A mobile estimate from refreshed own history is advisory; there is no balance API, and concurrent changes can invalidate the estimate.
+
+## 5. Withdrawal, correction, and status transitions
+
+Withdraw with `PATCH /api/requests/:id/withdraw`:
+
+```json
+{ "reason": "No longer needed" }
+```
+
+Reason is trimmed, 5–500 characters; no extra fields. The ID must be a UUID. Only the owner of a pending request may withdraw, including a forgotten check-out request or a request already recommended by a manager but still awaiting HR.
+
+| Transition | Actor / effect |
+| --- | --- |
+| New → pending | Employee submission; reserves dates/Excuse allowance |
+| Pending → pending with manager stage approved/rejected | Assigned manager recommendation; no final deduction or attendance change |
+| Pending → withdrawn | Requesting employee; releases reservations, clears decision/deduction, keeps history |
+| Pending → approved/rejected | HR final decision in dashboard; returned deduction/attendance effects apply |
+| Approved non-forgotten-check-out → pending | HR reopen in dashboard, if eligible/unlocked; clears decision/deduction and manager recommendation, retains/rechecks reservations |
+
+For correction, withdraw a pending request and submit a replacement. There is no edit-in-place endpoint. Rejected/withdrawn requests can be replaced with a new submission if validations permit, but cannot be reopened. An approved request needs HR handling; show contact-HR guidance rather than employee reopen controls.
+
+HR cannot reopen their own request, an approved forgotten check-out, or a request included in locked payroll. Forgotten check-out already approved is handled via HR attendance correction. Mobile displays subsequent API state; it does not recalculate approved payroll or promise reversal of exported reports/payments.
+
+Withdrawal returns updated `status: "withdrawn"`, null decision/deduction fields, and `lastChange`. Invalid input is 400, wrong owner 403, missing request 404, and non-pending state 409. Refresh own history, managed queue if relevant, attendance where relevant, and notifications after mutations.
+
+## 6. Assigned department manager recommendations
+
+HR assigns managers through the dashboard. Assignment does not change the employee role or grant HR/payroll/directory/correction access. Mobile must not use `/departments` to discover managers; that endpoint requires HR access.
+
+`GET /api/requests/managed` returns authorized pending requests, newest first, including already-recommended requests awaiting HR. Own requests are excluded. No assignment/no linked employee returns an empty array. An empty queue cannot distinguish an unassigned employee from a manager without pending work; use an empty-state message rather than asserting a role.
+
+Offer recommendation controls only for a server-returned managed item with overall `status: "pending"` and `managerStage: "pending"`. Submit:
+
+```json
+{ "status": "approved", "reason": "Department coverage is arranged" }
+```
+
+Use `PATCH /api/requests/:id/manager-review`; `status` is `approved` or `rejected` and reason is trimmed, 5–500 characters. Response remains overall pending, with the recommendation in `managerReview` and updated `managerStage`. Label actions “Recommend approval” / “Recommend rejection” and explain that HR decides finally.
+
+Wrong manager/self-review is 403; repeated recommendation or invalid stage is 409; missing request is 404. Refresh current queue after success, foreground return, or conflicts. HR must wait for the recommendation when required and may disagree. The recommending manager cannot also make that request's final HR decision. No manager/self-request or no assignment routes directly to HR. Assignment/department changes and HR reopening may reset recommendations; current server fields govern action availability.
+
+## 7. Notifications, failures, and refresh
+
+Notification transport/read state is defined in [MOBILE-API.md](MOBILE-API.md). Requesting employees receive `request-decided`, `request-reopened`, and `manager-reviewed`; managers receive `manager-review-required`. Route IDs by refreshing own history or managed queue; do not invent a single-request GET. A notification records an event and may no longer describe current status.
+
+Disable duplicate taps during POST/PATCH and preserve unsent form input in memory after recoverable errors. Request creation has no idempotency key: after timeout, refresh history and compare the candidate's submitted fields/time before manual retry. Do not auto-repeat POST or assume overlap protection is a general deduplication guarantee. Withdraw/review outcomes may also be uncertain; refresh the item/queue before retrying. Offline submissions are not queued in this release.
+
+400 means validation; 401 normally requires sign-in; 403 means restricted access; 404 means unavailable item; 409 means overlap/allowance/state conflict. Normalize safe server messages; transport failures may lack JSON. Attendance approval conflicts are for HR to resolve, not for mobile to bypass. See the shared error guide for 413, 429, and server/network failures.
+
+## 8. Request acceptance checklist
+
+- Every type serializes exactly its allowed fields; all eight types render in history.
+- Date-only ranges remain unchanged across device timezones; 93-day/start-date limits work. Forgotten check-out uses an owned open record and a past timestamp at or after check-in.
+- Excuse sends integer minutes/current assigned shift and optional 120-character reason; no general 5-character requirement is imposed on Excuse.
+- Attachment count/MIME/base64/decoded-size constraints work; files remain private. Forgotten check-out cannot include attachments.
+- Overlap rules and exact monthly boundaries work, including cross-month allocation and rejection/withdrawal release.
+- Pending withdrawal works; final/withdrawn items have no withdrawal control; HR reopen/reset is reflected after refresh.
+- Manager recommendation cannot be mistaken for final approval, cannot affect attendance/deductions, and cannot review self or another department.
+- Details handle nullable deductions and missing historical manager fields; server changes refresh across foreground return and notification navigation.
+- Lost-response handling does not auto-create duplicates; no fake/offline success appears.
+- Approved forgotten check-out matches HR's corrected attendance; full-day approvals affect missing report rows while Excuse leaves attendance unchanged.
+
+Use the full acceptance scenarios in [MOBILE_BRD.md](MOBILE_BRD.md) and isolated backend accounts/databases. Verify real REST responses, not only mocked Flutter models.
+
+## 9. Source references
+
+- [Routes and access entry points](hr-backend/src/requests/requests.controller.ts).
+- [Submission/review/withdrawal schemas](hr-backend/src/requests/dto/request.dto.ts).
+- [Response shape](hr-backend/src/requests/types/employee-request.type.ts).
+- [Overlap, allowance, workflow, corrections, and deductions](hr-backend/src/requests/requests.service.ts).
+- [Payroll lock restrictions](hr-backend/src/payroll/payroll-lock.ts).
+- [REST integration regression tests](hr-backend/test/hr.e2e-spec.ts).
+
+Recheck these sources when backend behavior changes; source inspection does not authorize mobile imports or database access. Update request-specific details here and shared integration behavior in MOBILE-API.md.
