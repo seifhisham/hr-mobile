@@ -1,6 +1,6 @@
 # Employee Mobile Application — Business Requirements Document
 
-Version: 1.0 | Prepared: 2026-10-06 | Status: implementation baseline; open business decisions require confirmation before release.
+Version: 1.1 | Prepared: 2026-10-06 | Updated: 2026-10-06 | Status: authentication, core attendance and employee requests implemented; full acceptance and release decisions remain pending.
 
 ## 1. Purpose and outcome
 
@@ -236,3 +236,40 @@ These paths are references for contract verification, not dependencies to import
 5. Verify privacy, device compatibility, permissions, lifecycle behavior, and full REST-to-dashboard workflows. Complete AC-19–20, resolve release decisions, and record pilot approval.
 
 Mobile delivery is complete when all in-scope requirements and acceptance scenarios pass, the app works with the existing REST backend without privileged bypasses, setup/verification documentation is available, and the business/technical owners accept the agreed device pilot. Backend functionality alone is not mobile completion.
+
+### Implementation progress — 2026-10-06
+
+“Implemented” below records delivered mobile code, not final acceptance. Device testing, dashboard agreement and release approval remain required. The current integration guides are [MOBILE-API.md](MOBILE-API.md) and [MOBILE-REQUESTS.md](MOBILE-REQUESTS.md); setup and test instructions are in [SETUP.md](SETUP.md) and [README.md](README.md).
+
+| Area / requirements | Delivered | Remaining verification or work |
+| --- | --- | --- |
+| Foundation / delivery step 1 | Flutter Riverpod/MVVM app, shared Dio client, typed failures, protected router and environment configuration. `API_BASE_URL` comes from `.env`; either the server origin or a URL ending in `/api` is accepted without duplicating the prefix. | Confirm production URL, supported devices and release decisions. |
+| AUTH-01–07 | Employee login, secure opaque-token storage, startup validation, protected 401 session clearing, read-only profile/company/schedule, password change with session revocation, logout including unconfirmed remote sign-out guidance, readable backend errors and HR access/reset guidance. Profile refreshes on Account entry and foreground return. National IDs remain text. | Real-device restart/secure-storage verification and the complete authentication acceptance scenarios. |
+| Home and navigation | Redesigned employee workspace, assigned schedule/company calendar date, persistent Home/Attendance/Requests/Account navigation, saved light/dark toggle and API unread notification badge/inbox entry. Current attendance and backend workday are displayed on Attendance. | Live Home attendance summary and physical-device navigation/accessibility verification. |
+| ATT-01, ATT-02, ATT-04, ATT-06, ATT-07, ATT-08, ATT-12 | Server attendance/policy loading, server workday selection, exact multipart fields, owned-record check-out, duplicate-tap prevention, closed-workday blocking, earlier-open-record HR guidance, saved-record schedule/timezone display and reconciliation before retry. If reconciliation fails, submission remains blocked. No offline attendance queue. | Real-device, overnight-workday and HR-dashboard agreement checks. |
+| ATT-03, ATT-05 | Camera-only capture with fresh GPS, permission/settings recovery, service/accuracy/radius/age checks, JPEG preparation up to 1600 pixels per side, metadata removal and byte-limit validation. Temporary camera files are deleted after capture; interrupted camera results are discarded when Attendance opens. Android foreground location/internet permissions and iOS usage descriptions are added. | Phone permission/lifecycle, camera-format and GPS verification; iOS foreground-only geolocator build setup on the Mac host. Startup-wide interrupted-file cleanup still needs verification. |
+| ATT-09 | Recent returned intervals, timestamps/status and the 93-record limit explanation; no fabricated absent-day rows. | Inclusive local workday/date and status filtering delivered; verify on pilot devices. |
+| ATT-10, ATT-11 | Older open records show HR/forgotten-check-out guidance. Isolated REST tests verify evidence metadata/photo retrieval. | Authenticated mobile evidence viewing with metadata, transient photos, retry and no-evidence state is delivered. Forgotten-check-out entry/form is delivered for owned open records, including saved-timezone departure selection. Complete device/account-isolation acceptance remains pending. |
+| REQ-01–10 | Own history/status/type filtering, all eight forms, assigned-shift Excuse validation/allowance guidance, inline attachments, private image previews, explicit PDF save, details with separate manager/HR stages, pending withdrawal and unknown-outcome reconciliation. Forgotten departure uses the saved timezone and explicitly resolves repeated/nonexistent clock-change times. | Real-device picker/PDF save, complete attachment/account privacy checks and HR/mobile pilot acceptance. Notification refresh follows in delivery step 4. |
+| MGR-01–04 | Authorized department queue and read-only request details, reachable from manager alerts or Requests when available; own-request withdrawal is hidden in managed details. Returned recommendations remain separate from HR decisions. | Manager recommendation actions and their uncertain-outcome reconciliation remain to implement. |
+| NTF-01–05 | API inbox/unread badge, company-local times, unread filter, server-persisted mark-read with opaque IDs, removed-alert recovery, fresh own/managed request routing, sign-in/foreground/mutation refresh and 30-second foreground-only polling. Account changes discard prior state and late responses. | Physical-device foreground/background, accessibility and end-to-end HR/manager event verification remain part of the pilot. |
+| Localization and diagnostics | English/Arabic labels for delivered authentication/account/attendance/request flows. Debug `pretty_dio_logger` logs URLs, status and backend error bodies; request bodies/headers and successful response bodies are omitted to protect credentials and employee data. | Full attendance RTL/accessibility/device checks and log/privacy review before release. Language approval remains open. |
+
+### Recorded verification and acceptance gaps
+
+Last recorded checks on 2026-10-06:
+
+- `flutter pub get` and localization generation succeeded; `flutter analyze` reported no issues.
+- `flutter test` passed 56 unit/widget tests. The three opt-in real-backend tests are skipped in the default run.
+- The authentication REST test passed separately against a throwaway local backend/database: login, restore, wrong-current-password handling, password revocation and logout.
+- The attendance REST test passed separately against a fresh throwaway database: invalid location/accuracy/stale evidence rejection without writes, valid multipart check-in/check-out, preserved original events on repeats, and authenticated evidence metadata/photo retrieval.
+- The request REST test passed against a fresh in-memory backend provisioned through REST: all eight types, inline attachments, overlap rejection, exact monthly Excuse boundary and cross-month release, withdrawal, HR decisions/reopening and approved forgotten departure without fabricated evidence.
+- Request unit/widget checks cover strict payloads, inclusive ranges, shift lengths, Cairo clock changes, attachment limits, historical workflow fields, lost responses/duplicate taps, sign-out preview cleanup, Arabic dark mode and large-text landscape layouts.
+- Focused automated checks also cover inclusive workday/status filters, authenticated origin-resolved photo retrieval, empty evidence, foreign-URL rejection and evidence dialog/filter recovery.
+- Focused automated checks cover multipart fields, closed/older-open workdays, duplicate taps, expired/cancelled captures, disposed-session capture, unknown-outcome blocking/reconciliation, JPEG resizing/EXIF removal, and the Attendance screen's server workday and saved timezone.
+
+AC-01–03 have automated and isolated REST coverage; AC-04–09 and attendance portions of AC-18–19 have partial automated/REST coverage. These are not recorded as fully accepted: live camera/GPS, complete permission recovery, device timezone/overnight behavior and agreement with the HR dashboard remain unverified. AC-10 mobile evidence viewing is implemented with automated coverage; full device evidence access and account-isolation acceptance remain pending; AC-11–14 and the request portion of AC-18 now have mobile code and automated/isolated REST coverage; native attachment handling and full device/dashboard acceptance remain pending. AC-15–16 await manager recommendation actions. AC-17 has mobile notification code and automated/isolated REST coverage; device acceptance remains pending. AC-19 still needs the complete privacy/account-switch review. AC-20 and pilot approval are pending.
+
+Android APK verification is blocked by stalled Gradle dependency downloads. The offline attempt also lacked the camera plugin's cached Kotlin Gradle dependency (`2.3.20`); the online retry did not finish. No successful APK build or physical-phone pilot is claimed. iOS build/device verification is also pending.
+
+Next delivery work: implement manager recommendation actions; complete the phone capture/evidence/request pilot alongside them. Keep release decisions and remaining acceptance scenarios open until their evidence is recorded.

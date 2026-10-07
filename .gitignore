@@ -1,4 +1,13 @@
 # Miscellaneous
+# Local agent rules and skills
+/.agents/
+/.code-review-graph/
+.env
+.env.*
+!.env.example
+/artifacts/
+/android/build/
+
 *.class
 *.log
 *.pyc
