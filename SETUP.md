@@ -116,8 +116,7 @@ post_install do |installer|
         'PERMISSION_PHOTOS=0',
 
         ## dart: PermissionGroup.location
-        'PERMISSION_LOCATION=0',
-        'PERMISSION_LOCATION_WHENINUSE=1',
+        'PERMISSION_LOCATION=1',
 
         ## dart: PermissionGroup.mediaLibrary
         'PERMISSION_MEDIA_LIBRARY=0',
@@ -145,7 +144,7 @@ end
 
 ---
 
-For foreground-only attendance location, add `BYPASS_PERMISSION_LOCATION_ALWAYS=1` to the geolocator_apple target's preprocessor macros on the Mac build host, as described in the [geolocator iOS setup](https://pub.dev/packages/geolocator#ios). No background location permission is needed. Camera capture uses image_picker's native permission handling; gallery selection is not offered.
+Attendance monitoring now requires background location for open attendance. The checked-in `ios/Podfile` enables `PERMISSION_LOCATION=1`; do not set `BYPASS_PERMISSION_LOCATION_ALWAYS=1`. The runner plist contains Always usage text and the `location` background mode. On the Mac build host, run `flutter pub get`, `cd ios`, and `pod install`; verify Runner's Background Modes → Location updates capability and signing in Xcode. Android includes background/foreground-service location and notification permissions, a location notification icon, and notification-plugin desugaring. Grant foreground precise location first, then Always / Allow all the time through the explained on-duty action. Android 11+ can direct the employee to app settings for background access. Camera capture uses the existing native handling; gallery selection is not offered. See [LOCATION-DEVICE-CHECKS.md](LOCATION-DEVICE-CHECKS.md) for platform limits and acceptance checks.
 
 ## 5. 🌍 Environment Variables
 

@@ -1,26 +1,45 @@
 import 'package:hrmobile/src/imports/imports.dart';
 import '../theme/theme_toggle_button.dart';
 import 'notifications/notification_button.dart';
+import 'auth/providers/session_provider.dart';
 
-class EmployeeNavigation extends StatelessWidget {
+class EmployeeNavigation extends ConsumerWidget {
   const EmployeeNavigation({super.key, required this.index});
   final int index;
   @override
-  Widget build(BuildContext context) => AppBottomNavBar(
-        currentIndex: index,
-        onTap: (value) => context.goNamed(
-            const ['home', 'attendance', 'requests', 'account'][value]),
-        items: [
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasEmployee = ref
+        .watch(sessionProvider.select((s) => s.userOrNull?.employee != null));
+    return AppBottomNavBar(
+      featuredIndex: 0,
+      currentIndex: index == 4 && !hasEmployee ? 0 : index,
+      onTap: (value) => context.goNamed(
+          const ['home', 'attendance', 'requests', 'account', 'sales'][value]),
+      items: [
+        AppBottomNavItem(
+            label: 'home.home_title'.tr(),
+            icon: Icons.home_outlined,
+            activeIcon: Icons.home_rounded),
+        AppBottomNavItem(
+            label: 'attendance.nav_label'.tr(),
+            icon: Icons.access_time_rounded,
+            activeIcon: Icons.access_time_filled_rounded),
+        AppBottomNavItem(
+            label: 'requests.title'.tr(),
+            icon: Icons.description_outlined,
+            activeIcon: Icons.description_rounded),
+        AppBottomNavItem(
+            label: 'account.title'.tr(),
+            icon: Icons.person_outline_rounded,
+            activeIcon: Icons.person_rounded),
+        if (hasEmployee)
           AppBottomNavItem(
-              label: 'home.home_title'.tr(), icon: Icons.home_outlined),
-          AppBottomNavItem(
-              label: 'attendance.title'.tr(), icon: Icons.access_time_rounded),
-          AppBottomNavItem(
-              label: 'requests.title'.tr(), icon: Icons.description_outlined),
-          AppBottomNavItem(
-              label: 'account.title'.tr(), icon: Icons.person_outline_rounded),
-        ],
-      );
+              label: 'sales.title'.tr(),
+              icon: Icons.home_work_outlined,
+              activeIcon: Icons.home_work_rounded),
+      ],
+    );
+  }
 }
 
 class EmployeeHeading extends StatelessWidget {

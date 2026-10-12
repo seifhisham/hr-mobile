@@ -11,6 +11,116 @@ String requestTypeLabel(String type) => requestTypes.contains(type)
 String requestStatusLabel(String status) => requestStatuses.contains(status)
     ? 'requests.statuses.$status'.tr()
     : status;
+
+class RequestTypeCards extends StatelessWidget {
+  const RequestTypeCards({super.key, this.selectedType, this.onSelected});
+
+  final String? selectedType;
+  final ValueChanged<String>? onSelected;
+
+  @override
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, constraints) {
+        final columns = MediaQuery.textScalerOf(context).scale(1) > 1.5 ? 2 : 3;
+        final width =
+            (constraints.maxWidth - AppSpacing.md * (columns - 1)) / columns;
+        var labelHeight = 0.0;
+        for (final type in requestTypes) {
+          final painter = TextPainter(
+              text: TextSpan(
+                  text: requestTypeLabel(type),
+                  style: context.textTheme.titleSmall),
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context))
+            ..layout(maxWidth: width - AppSpacing.sm * 2);
+          if (painter.height > labelHeight) labelHeight = painter.height;
+          painter.dispose();
+        }
+        return Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            children: [
+              for (final type in requestTypes)
+                SizedBox(
+                    width: width,
+                    child: Semantics(
+                        button: true,
+                        enabled: onSelected != null,
+                        selected:
+                            selectedType == null ? null : selectedType == type,
+                        child: AppCard(
+                            color: selectedType == type
+                                ? context.colors.primaryContainer
+                                : context.colors.surfaceContainerLow,
+                            onTap: onSelected == null
+                                ? null
+                                : () => onSelected!(type),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: AppSpacing.sm,
+                                vertical: AppSpacing.lg),
+                            child: SizedBox(
+                                width: double.infinity,
+                                height: AppSpacing.xl +
+                                    AppSpacing.md +
+                                    labelHeight +
+                                    (selectedType == null
+                                        ? 0
+                                        : AppSpacing.sm + AppSpacing.ml),
+                                child: Column(children: [
+                                  ExcludeSemantics(
+                                      child: Icon(
+                                          switch (type) {
+                                            'leave' =>
+                                              Icons.beach_access_outlined,
+                                            'sick' => Icons.sick_outlined,
+                                            'unpaid' => Icons.money_off_rounded,
+                                            'urgent' =>
+                                              Icons.priority_high_rounded,
+                                            'excuse' => Icons.more_time_rounded,
+                                            'mission' =>
+                                              Icons.work_outline_rounded,
+                                            'holiday' =>
+                                              Icons.event_available_outlined,
+                                            _ => Icons.logout_rounded,
+                                          },
+                                          size: AppSpacing.xl,
+                                          color: switch (type) {
+                                            'leave' =>
+                                              context.appColors.warning,
+                                            'sick' ||
+                                            'urgent' =>
+                                              context.colors.error,
+                                            'unpaid' ||
+                                            'mission' =>
+                                              context.colors.primary,
+                                            _ => context.colors.tertiary,
+                                          })),
+                                  SizedBox(height: AppSpacing.md),
+                                  SizedBox(
+                                      height: labelHeight,
+                                      child: Center(
+                                          child: Text(requestTypeLabel(type),
+                                              textAlign: TextAlign.center,
+                                              style: context
+                                                  .textTheme.titleSmall))),
+                                  if (selectedType != null) ...[
+                                    SizedBox(height: AppSpacing.sm),
+                                    SizedBox(
+                                        height: AppSpacing.ml,
+                                        child: selectedType == type
+                                            ? Icon(
+                                                Icons
+                                                    .check_circle_outline_rounded,
+                                                color: context
+                                                    .colors.onPrimaryContainer,
+                                                size: AppSpacing.ml)
+                                            : null),
+                                  ],
+                                ]))))),
+            ]);
+      });
+}
+
 String requestTime(DateTime value, String timezone) {
   try {
     return DateFormat('yyyy-MM-dd HH:mm')

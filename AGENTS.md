@@ -6,6 +6,8 @@ Before starting work, read `.agents/rules/*.mdc` when the directory exists. Appl
 
 Resolve skill references against `.agents/skills/` when a rule points to a missing `.cursor/skills/` path. This guide and the actual project configuration take precedence over stale references to other projects or stacks in local rules. `.agents/` is Git-ignored local guidance and remains readable from the filesystem.
 
+For project-specific skill scope and dependencies, read `.agents/SKILL_COMPATIBILITY.md` before applying a local skill. Read rules at the start of each task; reread relevant guidance when it changes. Skills are loaded when relevant, rather than all on every message.
+
 ## Project
 
 **hrmobile** — HR mobile app for the WSC company for check-in and check-outs

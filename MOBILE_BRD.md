@@ -1,10 +1,10 @@
 # Employee Mobile Application — Business Requirements Document
 
-Version: 1.2 | Prepared: 2026-10-06 | Updated: 2026-10-07 | Status: authentication, attendance/evidence, employee requests, redesigned navigation with saved light/dark mode, and in-app notifications implemented; department reviews are read-only. Manager recommendation actions, full device acceptance and release decisions remain pending.
+Version: 1.3 | Updated: 2026-10-12 | Status: implementation baseline; open business decisions require confirmation before release.
 
 ## 1. Purpose and outcome
 
-Build the Flutter employee application for the existing Company HR system. Employees must be able to sign in, record attendance with live office evidence, view their own attendance, submit and track requests, receive in-app notifications, and manage their password. Employees assigned as department managers also need the existing department request recommendation workflow.
+Build the Flutter employee application for the existing Company HR system. Employees must be able to sign in, record attendance with live office evidence, view their own attendance, submit and track requests, receive in-app notifications, and manage their password. Employees with the manager role also need direct-report request recommendations and team attendance and sales views.
 
 Success means mobile actions produce the same backend records visible to HR in the existing dashboard, with server-enforced identity, permissions, attendance rules, and request state transitions.
 
@@ -33,12 +33,12 @@ This document governs mobile scope and acceptance. [BRD.md](BRD.md) remains the 
 | User | Mobile access |
 | --- | --- |
 | Active employee with an account and linked profile | Own profile, attendance, requests, notifications, and password actions |
-| Employee assigned as department manager | Employee features plus server-returned managed requests and recommendations |
+| Direct manager | Employee features plus server-returned direct reports, managed requests, recommendations, attendance, and sales views |
 | HR/admin account with a linked employee profile | May use the same personal employee workflows; privileged administration remains in the dashboard |
 | Account without an employee profile | Explain that employee access is unavailable and provide sign-out/support guidance |
 | Inactive employee or expired/revoked session | Return to sign-in when the API rejects authentication |
 
-Manager assignment does not change account role or grant employee-directory, payroll, attendance-correction, or final HR-decision access. Never infer manager privileges from department name or job title. `/requests/managed` is the authorized queue; an empty list means no current accessible work, not proof that the user is not a manager.
+The manager role and direct assignments do not grant employee-directory, payroll, attendance-correction, or final HR-decision access. Never infer manager privileges from department name or job title. `/requests/managed` is the authorized queue; an empty list means no current accessible work, not proof that the user is not a manager.
 
 HR provisions accounts and resets forgotten passwords. There is no employee registration or self-service password recovery API.
 
@@ -55,12 +55,29 @@ HR provisions accounts and resets forgotten passwords. There is no employee regi
 | Notifications | Inbox, unread count/filter, mark read, route to current request or accessible record |
 | Profile/account | Read-only employee details and assigned schedule, change password, sign out |
 | Department reviews | Managed queue, request details, approve/reject recommendation with reason; actions only when server stage permits |
+| Sales | Own real estate activity history, completed client meetings/property viewings, signed sale/lease submission, corrections, monthly verified totals and targets |
+| Team sales reviews | Current direct manager's authorized sales activities, verification/return with reasons; self-review forbidden |
 
 Use simple employee navigation: Home, Attendance, Requests, and Account, with a notification bell and Department reviews entry. Refresh the managed queue when opened and after recommendations. This is a proposed navigation structure, not a requirement for a particular UI library.
 
-Out of scope: HR/admin dashboard replacement, employee creation/editing, schedule/settings administration, final request decisions, request reopening by employees, manual attendance corrections, payroll/payslips/bank payments, company-wide holiday administration, leave entitlement balances, public registration, background push/email/SMS, offline attendance synchronization, continuous GPS tracking, facial recognition, and multiple attendance intervals per workday.
+Out of scope: HR/admin dashboard replacement, employee creation/editing, schedule/settings administration, final request decisions, request reopening by employees, manual attendance corrections, payroll/payslips/bank payments, company-wide holiday administration, leave entitlement balances, public registration, background push/email/SMS, offline attendance synchronization, off-duty GPS tracking, facial recognition, and multiple attendance intervals per workday.
+
+### LOCATION — Attendance monitoring (approved additive scope, 2026-10-12)
+
+Implement [MOBILE-LOCATION.md](MOBILE-LOCATION.md): background location reporting only while attendance is open, a 150-metre departure boundary from the office point, and a server-owned five-minute return window after reliable departure confirmation. Missing, stale, inaccurate, or uncertain location marks location unavailable and cancels the return timer; it must never force checkout or create a deduction. Reliable return cancels the timer. Fresh outside evidence through expiry permits an audited automatic checkout. Read the handoff for REST bodies, state responses, platform lifecycle requirements, defaults, and acceptance cases. The separately developed Flutter project must implement reporting and warnings before this feature works on phones.
+
+- LOC-01: Load `policy.tracking` and start/resume monitoring the exact owned open attendance record after sign-in, launch/resume, or successful check-in. Monitor only open attendance; stop after confirmed checkout, logout, account switch, or 401. Configure background permissions/lifecycle for supported Android/iOS versions and explain tracking before requesting access.
+- LOC-02: Aim to report a fresh fix every 30 seconds, including when stationary, using `POST /attendance/:id/location`. Send actual capture time, serialize requests, and never replay queued old fixes. Phone background timing is best effort; never promise uninterrupted tracking.
+- LOC-03: The departure radius is 150 metres from the office coordinates, separate from the 50-metre manual capture radius. Server confirmation requires two reliable outside readings at least 15 seconds apart; the second starts the five-minute return window. The server uses reported accuracy to distinguish inside, outside, and uncertain readings.
+- LOC-04: Display the server's `returnBy` countdown and a clear warning/local notification. Returning reliably inside cancels the countdown. Only the backend may automatically close attendance, at the saved deadline with fresh outside evidence and an audit. Refresh own attendance at expiry rather than claiming local checkout success.
+- LOC-05: Send only `{ "available": false }` when fresh location cannot be obtained and connectivity permits. More than 90 seconds without a fresh capture, accuracy above 50 metres, or uncertainty at the boundary also marks location unavailable and cancels the countdown. Show “Location unavailable. Attendance remains open.” with recovery guidance. Never deduct or check out because reporting stopped; recovery requires new departure confirmation and a full return window.
+- LOC-06: Reconcile 409 through own attendance; handle capture timestamps that are stale, future, or out of order. Keep unavailable-location state separate from normal attendance status. Automatic checkout requires no photo and retains the one-interval-per-workday rule. Break/mission exemptions are not implemented. Existing audited HR corrections remain the recovery path for mistakes.
 
 ## 5. Functional requirements
+
+### SALES — Real estate activities and performance
+
+Sales is an approved additive scope. Implement [MOBILE-SALES.md](MOBILE-SALES.md), which defines the REST payloads, capability checks, state transitions and SALES-AC-01–08. A closed deal means a signed sale or lease contract, confirmed by the project owner. HR/admin explicitly enables sales submission per employee. Count only verified activities; display separate meeting/viewing, sale/lease and per-currency contract-value totals and independent monthly targets. Current direct managers verify assigned employees' activities; HR/admin can also review. No self-verification, combined score, commission/payroll calculation, or full CRM is introduced. The backend/dashboard are implemented; mobile delivery remains to be completed in the separately developed Flutter project.
 
 ### AUTH — Authentication and account
 
@@ -76,7 +93,7 @@ Out of scope: HR/admin dashboard replacement, employee creation/editing, schedul
 
 - ATT-01: Load `GET /attendance/me` and `GET /attendance/policy`. Use returned `workDate` for attendance; it can differ from company calendar `today` for overnight shifts. Assigned schedule is read-only.
 - ATT-02: Fetch current policy rather than embedding office settings as the mobile source of truth. Current office is latitude 30.023092, longitude 31.528179; radius 50 metres, positive accuracy at most 50 metres, and capture age at most 120 seconds. Accuracy does not expand the permitted radius.
-- ATT-03: Request foreground location and camera access when needed, with a short explanation. Handle denial, permanent denial, disabled location services, unavailable camera, and insufficient accuracy with recovery guidance. Capture a fresh camera image of the place and current GPS for **each** check-in/check-out. Attendance evidence must not come from gallery selection or an old capture.
+- ATT-03: Request foreground location and camera access when needed, with a short explanation. Handle denial, permanent denial, disabled location services, unavailable camera, and insufficient accuracy with recovery guidance. Capture a fresh camera image of the place and current GPS for **each manual** check-in/check-out. Attendance evidence must not come from gallery selection or an old capture. Automatic location checkout follows LOC-04 without a photo.
 - ATT-04: Submit multipart with exactly `latitude`, `longitude`, `accuracyMeters`, `capturedAt`, and one binary `photo`. Text fields are strings; `capturedAt` is ISO 8601 UTC or explicit offset. Let the HTTP library generate the multipart boundary. Employee identity and attendance timestamps are never supplied in these bodies.
 - ATT-05: Capture location/photo close together; refresh evidence when it is stale. Use non-animated JPEG/PNG, at most 5 MiB and 20 megapixels under the current implementation. Convert mobile camera formats when necessary and constrain image dimensions/size before upload. Camera capture time is evidence time, not a chosen attendance time.
 - ATT-06: Check-in uses `POST /attendance/check-in`. Check-out uses `POST /attendance/:id/check-out` with the exact owned open record ID. Disable repeated taps during submission. Show success only after a successful response; refresh own attendance afterward for status.
@@ -98,7 +115,7 @@ Out of scope: HR/admin dashboard replacement, employee creation/editing, schedul
 | `forgotten-check-out` | Owned open `attendanceId` UUID, `proposedCheckOut` ISO timestamp with offset | `reason`: 5–500 trimmed characters; attachments are unsupported |
 
 - REQ-02: Date ranges are inclusive, ordered, at most 93 days, and cannot start before employment. Personal `holiday` is a time-off request, not a company holiday calendar. Use friendly type labels while preserving exact wire values.
-- REQ-03: Excuse subtype is `leaving-early`, `arriving-late`, or `during-shift`. Use the employee's current assigned schedule ID; duration is 1–1440 minutes and cannot exceed shift length. Each requested date charges that duration, rather than sharing one duration across the range.
+- REQ-03: Excuse subtype is `leaving-early`, `arriving-late`, or `during-shift`. Use the schedule ID effective on every requested date; split a request that crosses schedule IDs. Duration is 1–1440 minutes and cannot exceed the effective shift length on any requested date. Each requested date charges that duration, rather than sharing one duration across the range.
 - REQ-04: Explain the shared monthly Excuse limit: 240 minutes and at most 3 pending/approved requests per requested calendar month. Cross-month ranges split minutes by dates and count once in each month. Rejection/withdrawal releases reservations; a manager rejection alone does not. Any client allowance estimate is advisory and derived from current own requests; there is no dedicated balance endpoint.
 - REQ-05: Backend overlap rules are authoritative. Pending/approved non-Excuse time off conflicts with overlapping date ranges; Excuse-to-Excuse overlap conflicts for the same shift and subtype. Forgotten check-out conflicts for the same attendance record. Surface 409 and refresh history.
 - REQ-06: Forgotten departure must be in the past and at or after recorded check-in. Convert the chosen date/time from the record's timezone to an explicit ISO offset/UTC timestamp. Never silently interpret it in the device timezone.
@@ -107,41 +124,46 @@ Out of scope: HR/admin dashboard replacement, employee creation/editing, schedul
 - REQ-09: Withdraw only an owned pending request with `PATCH /requests/:id/withdraw` and a 5–500 trimmed character reason. Withdrawn/rejected requests remain in history. There is no employee edit endpoint: correct a pending request by withdrawing and submitting a replacement. HR can reopen eligible approvals; reflect returned pending status and change history after refresh.
 - REQ-10: Submission has no client idempotency-key contract. After an uncertain response, refresh history and reconcile the candidate before inviting manual resubmission; never automatically repeat request creation. Use similar refresh/reconciliation after uncertain withdrawal or manager review.
 
-### MGR — Department manager recommendations
+### MGR — Direct manager recommendations
 
-- MGR-01: Load `GET /requests/managed`. Show only server-returned department requests; the manager's own requests are excluded. Preserve already-reviewed items awaiting HR without offering a repeated recommendation.
+- MGR-01: Load `GET /requests/managed`. Show only server-returned direct-report requests; the manager's own requests are excluded. Preserve already-reviewed items awaiting HR without offering a repeated recommendation.
 - MGR-02: Submit `PATCH /requests/:id/manager-review` with `{ "status": "approved" | "rejected", "reason": "..." }`, reason 5–500 trimmed characters. Label the action as a recommendation to HR.
 - MGR-03: Overall request remains `pending` after either recommendation. Manager review does not change attendance or apply deductions. Display `managerStage` independently: `not-required`, `pending`, `approved`, or `rejected`.
 - MGR-04: Refresh after review, foreground return, or 403/409. Current assignments govern access; changing a manager/department or reopening can reset recommendations. Ordinary employee mobile screens never offer final HR decision or manager assignment controls.
+- MGR-05: Tapping a `manager-review-required` notification opens the matching request in a bottom sheet after refreshing the authorized managed queue. Show the employee, request type, submitted details, reason, and current manager stage. When the server still reports `status: pending` and `managerStage: pending`, offer approval and rejection recommendations with a required reason. Disable duplicate submissions, keep entered text on a recoverable error, and refresh the queue and inbox after either result. If the request is gone, reassigned, or already reviewed, explain that it is no longer available for review and do not offer the actions.
 
 ### NTF — In-app notifications
 
 - NTF-01: Load `GET /notifications` after sign-in, foreground return, and relevant successful mutations. Proposed active refresh interval is 30 seconds; pause polling in the background.
 - NTF-02: Use server `items` and `unreadCount`; show title, message, time, read state, and unread filter. Employee events currently include `request-decided`, `request-reopened`, and `manager-reviewed`; assigned managers also receive `manager-review-required`.
 - NTF-03: Mark accessible items read with `PATCH /notifications/:id/read`, no body needed. IDs are opaque strings, not necessarily UUIDs; URL-encode them. Repeated read preserves the original timestamp. Refresh gracefully on 404 when a live alert has disappeared.
-- NTF-04: Resolve a `requestId` using current own requests or the authorized managed queue; there is no single-request GET endpoint. Resolve any accessible `attendanceId` through own attendance. Refresh before showing details and handle a no-longer-accessible target. Manager-review alerts route to Department reviews.
-- NTF-05: Ordinary employee missing-check-out guidance comes from own attendance; the current notification service's missing-check-out alerts are HR/admin only. Do not promise background push, reminders, email, or SMS.
+- NTF-04: Resolve a `requestId` using current own requests or the authorized managed queue; there is no single-request GET endpoint. Follow request-list pagination until the matching ID is found or the list is exhausted. Resolve any accessible `attendanceId` through own attendance. Refresh before showing details and handle a no-longer-accessible target. A `manager-review-required` alert opens the matching request in the Department reviews bottom sheet; marking it read is separate from submitting a recommendation.
+- NTF-05: Ordinary employee missing-check-out guidance comes from own attendance; the current notification service's missing-check-out alerts are HR/admin only. LOC-04 requires a departure warning/local notification; this does not introduce server push, email, or SMS.
 
 ## 6. REST integration checklist
 
 All paths below are relative to a configured base URL ending in `/api`. Avoid adding `/api` twice.
 
+Request list endpoints return paginated arrays (50 items by default, maximum 100). Follow `before` using the last returned request ID and retain the same `status` filter until a page has fewer than `limit` items. Refresh from the first page after mutations. History and notification target lookup must not assume the first page is complete; see hr-backend/API.md.
+
 | Capability | Endpoints used by mobile |
 | --- | --- |
 | Session/account | `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `POST /auth/password` |
 | Attendance | `GET /attendance/me`, `GET /attendance/policy`, `POST /attendance/check-in`, `POST /attendance/:id/check-out` |
+| Open-attendance monitoring | `POST /attendance/:id/location`; see MOBILE-LOCATION.md |
 | Private evidence | `GET /attendance/:id/evidence`, `GET /attendance/:id/photos/:event` |
 | Requests | `POST /requests`, `GET /requests/me`, `PATCH /requests/:id/withdraw` |
 | Department recommendations | `GET /requests/managed`, `PATCH /requests/:id/manager-review` |
 | Notifications | `GET /notifications`, `PATCH /notifications/:id/read` |
 | Schedule lookup when needed | `GET /schedules` (read-only; own attendance already returns assigned schedule) |
 | Connection diagnostics | `GET /health` (public; not a substitute for session validation) |
+| Real estate sales | `GET /sales/access`, own/team activity and performance reads, activity creation/correction and authorized review; see MOBILE-SALES.md |
 
 Mobile must not use `/employees`, global `/attendance` reports/exports/corrections, global `/requests`, `/requests/:id/decision`, `/requests/:id/reopen`, department administration, `/payroll*`, `/audit`, or settings/schedule mutation endpoints for these employee features.
 
 Configure separate development and production API addresses. The existing host development address is `http://127.0.0.1:3002/api`; on a physical phone, loopback refers to the phone, so use a reachable development host address. Configure emulator networking explicitly. Use HTTPS for production and never disable certificate validation. Native bearer calls go directly to NestJS; the Next.js dashboard proxy is not the mobile API base.
 
-JSON endpoints use `application/json`; attendance uses multipart and evidence photos return JPEG bytes. DTOs reject extra fields: send only the fields allowed for the chosen operation/type. Parse nullable and optional fields faithfully. Do not assume a status field exists on mutation responses when it is only added by the attendance read endpoint.
+JSON endpoints use `application/json`; manual attendance capture uses multipart, monitoring updates use JSON, and evidence photos return JPEG bytes. DTOs reject extra fields: send only the fields allowed for the chosen operation/type. Parse nullable and optional fields faithfully. Do not assume a status field exists on mutation responses when it is only added by the attendance read endpoint.
 
 ## 7. Errors and connection behavior
 
@@ -162,7 +184,7 @@ Normalize NestJS `message` strings or arrays into readable errors. Avoid showing
 ## 8. Quality and privacy requirements
 
 - Store session tokens using platform secure storage; redact tokens, passwords, national IDs, coordinates, attachment content, and photos from logs/crash reports.
-- Collect location only for attendance events. Request camera/location access in context; stop capture resources when leaving the flow. Delete temporary captures on completion/cancellation, and clear remaining files on the next startup if an interrupted flow left them behind.
+- Collect location for attendance events and approved monitoring of open attendance only; never track off duty. Request camera/location access in context, explain background monitoring, and stop monitoring after checkout/logout/account changes. Stop camera resources when leaving capture flows. Delete temporary captures on completion/cancellation, and clear remaining files on the next startup if an interrupted flow left them behind.
 - Keep employee details, request attachments, and evidence behind authenticated screens; clear account-specific state when switching users.
 - Use readable labels, accessible tap targets, screen-reader names, visible progress, and explicit submission results. Do not encode request status only by color.
 - Time presentation must respect company/record IANA timezones and daylight-saving rules, including overnight shifts; date-only request values must remain date-only.
@@ -189,12 +211,17 @@ Use isolated test accounts and databases. Never test mutations against real empl
 | AC-12 | Excuse accepts exactly 240 minutes/3 requests, rejects excess, splits cross-month reservations, and releases them on withdrawal/final rejection |
 | AC-13 | Forgotten check-out submission leaves attendance open; HR approval closes it with audited correction and no fabricated evidence |
 | AC-14 | Pending own request can be withdrawn; approved/rejected/withdrawn requests cannot; HR reopening is reflected in history after refresh |
-| AC-15 | Manager can recommend only on authorized queue items, cannot review self, and recommendation remains pending for HR with no deduction/attendance effect |
+| AC-15 | Assigned manager receives a `manager-review-required` alert; tapping it opens the matching request bottom sheet with approval/rejection recommendations and a required reason. Only authorized pending queue items can be reviewed; self-review is denied, and the recommendation remains pending for HR with no deduction/attendance effect |
 | AC-16 | Ordinary employee has no privileged controls; assignment change invalidates manager action gracefully; server 403 remains enforced |
-| AC-17 | Notification count/read state matches API and persists across sign-in; opaque IDs work; removed alerts and stale deep links recover safely |
+| AC-17 | Notification count/read state matches API and persists across sign-in; opaque IDs work; paginated request lookup finds older targets; removed alerts, reassignment, and stale links recover safely |
 | AC-18 | A timed-out request creation is reconciled without automatic duplicate POST; offline attendance is never queued or shown as submitted |
 | AC-19 | Switching accounts leaves no previous employee data/evidence; stored secrets and sensitive captures do not appear in logs |
 | AC-20 | Pilot on agreed real devices verifies camera formats, location accuracy, permission recovery, lifecycle refresh, and HR/mobile record agreement |
+| LOC-AC-01 | Tracking starts/resumes for the owned open record, reports while foreground/background on supported real devices, and stops after checkout/logout/account change/401 |
+| LOC-AC-02 | One outside reading cannot start a timer; confirmed departure starts five minutes. Reliable return cancels it. The mobile countdown matches server `returnBy` |
+| LOC-AC-03 | Fresh outside reports through expiry produce exactly one audited checkout at the server deadline, visible in mobile and HR, with no fabricated photo or payroll deduction |
+| LOC-AC-04 | Denied/disabled location, poor accuracy, boundary uncertainty, network/reporting loss and stale fixes leave attendance open, show unavailable location, cancel the timer and create no deduction |
+| LOC-AC-05 | Restart preserves a valid server deadline; recovery after stale coverage starts a new confirmation/full return window. Wrong ownership, invalid or replayed timestamps, and closed-record updates are rejected/reconciled |
 
 Verify model serialization and timezone conversions with focused automated tests; verify workflows through REST integration and Flutter widget/device tests appropriate to each feature. Acceptance requires passing Flutter analysis/tests, the agreed device pilot, and recorded evidence of the scenarios above. Mock-only success is insufficient for backend integration acceptance.
 
@@ -221,6 +248,7 @@ Proceed with API-backed scope and configurable environment setup while decisions
 | --- | --- |
 | AUTH | `hr-backend/src/auth/auth.controller.ts`, `auth.service.ts`, `dto/auth.dto.ts`; `src/employees/types/employee.type.ts` |
 | ATT | `hr-backend/src/attendance/attendance.controller.ts`, `attendance.service.ts`, `attendance-evidence.service.ts`, `attendance-time.ts` |
+| LOC | `hr-backend/src/attendance/attendance-location.service.ts`, `attendance.controller.ts`, `hr-backend/test/hr.e2e-spec.ts`; MOBILE-LOCATION.md |
 | REQ / MGR | `hr-backend/src/requests/requests.controller.ts`, `dto/request.dto.ts`, `types/employee-request.type.ts`, `requests.service.ts` |
 | NTF | `hr-backend/src/notifications/notifications.controller.ts`, `notifications.service.ts` |
 | REST integration | `hr-backend/API.md`, `hr-backend/test/hr.e2e-spec.ts`, relevant feature tests |
@@ -230,48 +258,10 @@ These paths are references for contract verification, not dependencies to import
 ## 12. Delivery order and completion
 
 1. Create the Flutter project and environment configuration; implement secure authentication, API client, profile loading, error handling, and timezone support. Complete AC-01–03.
-2. Implement Home, policy loading, live GPS/camera capture, check-in/check-out, reconciliation, history, and evidence. Complete AC-04–10 and attendance portions of AC-18–20.
+2. Implement Home, policy loading, live GPS/camera capture, check-in/check-out, reconciliation, history, and evidence. Add open-attendance background monitoring, unavailable-location recovery, and return warnings using LOC-01–06. Complete AC-04–10, LOC-AC-01–05, and attendance portions of AC-18–20.
 3. Implement all employee request forms, attachments, history/details, forgotten check-out, and withdrawal. Complete AC-11–14 and request portion of AC-18.
 4. Implement manager recommendations and notification inbox/routing/foreground refresh. Complete AC-15–17.
-5. Verify privacy, device compatibility, permissions, lifecycle behavior, and full REST-to-dashboard workflows. Complete AC-19–20, resolve release decisions, and record pilot approval.
+5. Implement the additive real estate Sales screens and team verification in MOBILE-SALES.md. Complete SALES-AC-01–08 against the REST backend and dashboard.
+6. Verify privacy, device compatibility, permissions, lifecycle behavior, and full REST-to-dashboard workflows. Complete AC-19–20, resolve release decisions, and record pilot approval.
 
 Mobile delivery is complete when all in-scope requirements and acceptance scenarios pass, the app works with the existing REST backend without privileged bypasses, setup/verification documentation is available, and the business/technical owners accept the agreed device pilot. Backend functionality alone is not mobile completion.
-
-### Implementation progress — reviewed 2026-10-07
-
-“Implemented” below records delivered mobile code, not final acceptance. Device testing, dashboard agreement and release approval remain required. The current integration guides are [MOBILE-API.md](MOBILE-API.md) and [MOBILE-REQUESTS.md](MOBILE-REQUESTS.md); setup and test instructions are in [SETUP.md](SETUP.md) and [README.md](README.md).
-
-| Area / requirements | Delivered | Remaining verification or work |
-| --- | --- | --- |
-| Foundation / delivery step 1 | Flutter Riverpod/MVVM app, shared Dio client, typed failures, protected router and environment configuration. `API_BASE_URL` comes from `.env`; either the server origin or a URL ending in `/api` is accepted without duplicating the prefix. | Confirm production URL, supported devices and release decisions. |
-| AUTH-01–07 | Employee login, secure opaque-token storage, startup validation, protected 401 session clearing, read-only profile/company/schedule, password change with session revocation, logout including unconfirmed remote sign-out guidance, readable backend errors and HR access/reset guidance. Profile refreshes on Account entry and foreground return. National IDs remain text. | Real-device restart/secure-storage verification and the complete authentication acceptance scenarios. |
-| Home and navigation | Redesigned employee workspace, assigned schedule/company calendar date, persistent Home/Attendance/Requests/Account navigation, saved light/dark toggle and API unread notification badge/inbox entry. Current attendance and backend workday are displayed on Attendance. | Live Home attendance summary and physical-device navigation/accessibility verification. |
-| ATT-01, ATT-02, ATT-04, ATT-06, ATT-07, ATT-08, ATT-12 | Server attendance/policy loading, server workday selection, exact multipart fields, owned-record check-out, duplicate-tap prevention, closed-workday blocking, earlier-open-record HR guidance, saved-record schedule/timezone display and reconciliation before retry. If reconciliation fails, submission remains blocked. No offline attendance queue. | Real-device, overnight-workday and HR-dashboard agreement checks. |
-| ATT-03, ATT-05 | Camera-only capture with fresh GPS, permission/settings recovery, service/accuracy/radius/age checks, JPEG preparation up to 1600 pixels per side, metadata removal and byte-limit validation. Temporary camera files are deleted after capture; interrupted camera results are discarded when Attendance opens. Android foreground location/internet permissions and iOS usage descriptions are added. | Phone permission/lifecycle, camera-format and GPS verification; iOS foreground-only geolocator build setup on the Mac host. Startup-wide interrupted-file cleanup still needs verification. |
-| ATT-09 | Recent returned intervals, timestamps/status, inclusive workday/date and status filtering, and the 93-record limit explanation; no fabricated absent-day rows. | Verify history and filters on pilot devices. |
-| ATT-10, ATT-11 | Older open records show HR/forgotten-check-out guidance. Authenticated evidence viewing includes metadata, transient photos, retry and no-evidence states. Owned open records link to the forgotten-check-out form with saved-timezone departure selection. Isolated REST tests verify evidence retrieval. | Complete device evidence access and account-isolation acceptance remain pending. |
-| REQ-01–10 | Own history/status/type filtering, all eight forms, assigned-shift Excuse validation/allowance guidance, inline attachments, private image previews, explicit PDF save, details with separate manager/HR stages, pending withdrawal and unknown-outcome reconciliation. Forgotten departure uses the saved timezone and explicitly resolves repeated/nonexistent clock-change times. | Real-device picker/PDF save, complete attachment/account privacy checks and HR/mobile pilot acceptance. |
-| MGR-01–04 | Authorized department queue and read-only request details, reachable from manager alerts or Requests when available; own-request withdrawal is hidden in managed details. Returned recommendations remain separate from HR decisions. | Manager recommendation actions and their uncertain-outcome reconciliation remain to implement. |
-| NTF-01–05 | API inbox/unread badge, company-local times, unread filter, server-persisted mark-read with opaque IDs, removed-alert recovery, fresh own/managed request routing, sign-in/foreground/mutation refresh and 30-second foreground-only polling. Account changes discard prior state and late responses. | Physical-device foreground/background, accessibility and end-to-end HR/manager event verification remain part of the pilot. |
-| Localization and diagnostics | English/Arabic labels for delivered authentication/account/attendance/request/notification and read-only department review flows. Debug `pretty_dio_logger` logs URLs, status and backend error bodies; request bodies/headers and successful response bodies are omitted to protect credentials and employee data. | Full attendance RTL/accessibility/device checks and log/privacy review before release. Language approval remains open. |
-
-### Recorded verification and acceptance gaps
-
-Last recorded checks on 2026-10-06:
-
-- `flutter pub get` and localization generation succeeded; `flutter analyze` reported no issues.
-- `flutter test` passed 56 unit/widget tests. The three opt-in real-backend tests are skipped in the default run.
-- The authentication REST test passed separately against a throwaway local backend/database: login, restore, wrong-current-password handling, password revocation and logout.
-- The attendance REST test passed separately against a fresh throwaway database: invalid location/accuracy/stale evidence rejection without writes, valid multipart check-in/check-out, preserved original events on repeats, and authenticated evidence metadata/photo retrieval.
-- The request REST test passed against a fresh in-memory backend provisioned through REST: all eight types, inline attachments, overlap rejection, exact monthly Excuse boundary and cross-month release, withdrawal, HR decisions/reopening and approved forgotten departure without fabricated evidence.
-- Request unit/widget checks cover strict payloads, inclusive ranges, shift lengths, Cairo clock changes, attachment limits, historical workflow fields, lost responses/duplicate taps, sign-out preview cleanup, Arabic dark mode and large-text landscape layouts.
-- Notification unit/widget checks cover opaque IDs, read state, removed alerts, fresh own/managed routing, denied manager access, foreground-only polling, mutation refresh, sign-out cleanup and late responses. The isolated request REST check also verifies notification events, repeated-read timestamps, read persistence across sign-in and reopened-request alerts.
-- Theme widget checks cover light/dark switching and saved preference restoration; notification layouts include Arabic dark mode and large-text landscape checks.
-- Focused automated checks also cover inclusive workday/status filters, authenticated origin-resolved photo retrieval, empty evidence, foreign-URL rejection and evidence dialog/filter recovery.
-- Focused automated checks cover multipart fields, closed/older-open workdays, duplicate taps, expired/cancelled captures, disposed-session capture, unknown-outcome blocking/reconciliation, JPEG resizing/EXIF removal, and the Attendance screen's server workday and saved timezone.
-
-AC-01–03 have automated and isolated REST coverage; AC-04–09 and attendance portions of AC-18–19 have partial automated/REST coverage. These are not recorded as fully accepted: live camera/GPS, complete permission recovery, device timezone/overnight behavior and agreement with the HR dashboard remain unverified. AC-10 mobile evidence viewing is implemented with automated coverage; full device evidence access and account-isolation acceptance remain pending; AC-11–14 and the request portion of AC-18 now have mobile code and automated/isolated REST coverage; native attachment handling and full device/dashboard acceptance remain pending. AC-15–16 await manager recommendation actions. AC-17 has mobile notification code and automated/isolated REST coverage; device acceptance remains pending. AC-19 still needs the complete privacy/account-switch review. AC-20 and pilot approval are pending.
-
-Android APK verification is blocked by stalled Gradle dependency downloads. The offline attempt also lacked the camera plugin's cached Kotlin Gradle dependency (`2.3.20`); the online retry did not finish. No successful APK build or physical-phone pilot is claimed. iOS build/device verification is also pending.
-
-Next delivery work: implement authorized manager approve/reject recommendations with a 5–500-character reason, preserve overall pending status for HR, and reconcile uncertain outcomes without automatically repeating a review. Verify AC-15–16, then complete the phone capture/evidence/request/notification pilot. Keep release decisions and remaining acceptance scenarios open until their evidence is recorded.

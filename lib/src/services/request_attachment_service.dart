@@ -14,7 +14,7 @@ class RequestAttachmentService {
               withReadStream: true);
           if (result == null) return null;
           final file = result.files.single;
-          if (file.size < 1 || file.size > 512 * 1024) {
+          if (file.size < 1 || file.size > RequestAttachment.maxBytes) {
             throw const FormatException('requests.attachment_invalid');
           }
           final stream = file.readStream ??
@@ -25,7 +25,7 @@ class RequestAttachmentService {
           final bytes = <int>[];
           await for (final chunk in stream) {
             bytes.addAll(chunk);
-            if (bytes.length > 512 * 1024) {
+            if (bytes.length > RequestAttachment.maxBytes) {
               throw const FormatException('requests.attachment_invalid');
             }
           }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,14 +6,23 @@ import 'package:image/image.dart' as image;
 import 'package:image_picker/image_picker.dart';
 import '../data/models/attendance_model.dart';
 import '../utils/utils.dart';
+import '../shared/helpers/delete_attendance_photo.dart';
+import '../shared/helpers/show_attendance_camera.dart';
 
 class AttendanceCaptureService {
+  AttendanceCaptureService(
+      {ImagePicker? picker, Future<XFile?> Function()? takePhoto})
+      : _picker = picker ?? ImagePicker(),
+        _takePhoto = takePhoto ?? showAttendanceCamera;
   static final instance = AttendanceCaptureService();
-  final _picker = ImagePicker();
+  final ImagePicker _picker;
+  final Future<XFile?> Function() _takePhoto;
 
   FutureEither<AttendanceCapture?> capture(AttendancePolicy policy) =>
       runTask(() async {
-        if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+        if (kIsWeb ||
+            (defaultTargetPlatform != TargetPlatform.android &&
+                defaultTargetPlatform != TargetPlatform.iOS)) {
           throw const CaptureFailure('attendance.phone_only');
         }
         if (!await Geolocator.isLocationServiceEnabled()) {
@@ -36,12 +44,7 @@ class AttendanceCaptureService {
         final capturedAt = DateTime.now().toUtc();
         XFile? photo;
         try {
-          photo = await _picker.pickImage(
-              source: ImageSource.camera,
-              maxWidth: 1600,
-              maxHeight: 1600,
-              imageQuality: 85,
-              requestFullMetadata: false);
+          photo = await _takePhoto();
           if (photo == null) return null;
           final position = await Geolocator.getCurrentPosition(
               locationSettings: const LocationSettings(
@@ -67,8 +70,15 @@ class AttendanceCaptureService {
           if (!policy.photoFormats.contains('jpeg')) {
             throw const CaptureFailure('attendance.photo_invalid');
           }
-          final bytes =
-              await compute(prepareAttendancePhoto, await photo.readAsBytes());
+          final Uint8List bytes;
+          try {
+            bytes = await compute(
+                prepareAttendancePhoto, await photo.readAsBytes());
+          } on CaptureFailure {
+            rethrow;
+          } catch (_) {
+            throw const CaptureFailure('attendance.photo_compression_failed');
+          }
           if (bytes.length > policy.maxPhotoBytes) {
             throw const CaptureFailure('attendance.photo_large');
           }
@@ -90,30 +100,20 @@ class AttendanceCaptureService {
           }
           throw const CaptureFailure('attendance.capture_failed');
         } finally {
-          if (photo != null) await _deletePhoto(photo);
+          if (photo != null) await deleteAttendancePhoto(photo);
         }
       }, operation: 'attendance.capture');
 
   /// Discard interrupted camera results: evidence must always be fresh.
   Future<void> discardLostCapture() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       final lost = await _picker.retrieveLostData();
       for (final photo in lost.files ?? <XFile>[]) {
-        await _deletePhoto(photo);
+        await deleteAttendancePhoto(photo);
       }
     } catch (error) {
       AppLogger.warning('Unable to discard interrupted camera capture',
-          context: {'type': error.runtimeType.toString()});
-    }
-  }
-
-  Future<void> _deletePhoto(XFile photo) async {
-    try {
-      final file = File(photo.path);
-      if (await file.exists()) await file.delete();
-    } catch (error) {
-      AppLogger.warning('Unable to remove temporary attendance photo',
           context: {'type': error.runtimeType.toString()});
     }
   }
@@ -134,14 +134,18 @@ Uint8List prepareAttendancePhoto(Uint8List bytes) {
   if (decoded == null || decoded.numFrames != 1) {
     throw const CaptureFailure('attendance.photo_invalid');
   }
-  final oriented = image.bakeOrientation(decoded);
-  final resized = oriented.width > 1600 || oriented.height > 1600
-      ? image.copyResize(oriented,
-          width: oriented.width >= oriented.height ? 1600 : null,
-          height: oriented.height > oriented.width ? 1600 : null)
-      : oriented;
-  resized.exif = image.ExifData();
-  resized.iccProfile = null;
-  resized.textData = null;
-  return image.encodeJpg(resized, quality: 85);
+  try {
+    final oriented = image.bakeOrientation(decoded);
+    final resized = oriented.width > 1280 || oriented.height > 1280
+        ? image.copyResize(oriented,
+            width: oriented.width >= oriented.height ? 1280 : null,
+            height: oriented.height > oriented.width ? 1280 : null)
+        : oriented;
+    resized.exif = image.ExifData();
+    resized.iccProfile = null;
+    resized.textData = null;
+    return image.encodeJpg(resized, quality: 85);
+  } catch (_) {
+    throw const CaptureFailure('attendance.photo_compression_failed');
+  }
 }

@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:timezone/timezone.dart' as tz;
@@ -17,7 +18,11 @@ const requestTypes = [
 const requestStatuses = ['pending', 'approved', 'rejected', 'withdrawn'];
 const excuseTypes = ['leaving-early', 'arriving-late', 'during-shift'];
 
-class RequestAttachment {
+class RequestAttachment extends Equatable {
+  static const maxBytes = 5 * 1024 * 1024;
+  @override
+  List<Object?> get props => [name, mimeType, content];
+
   const RequestAttachment(
       {required this.name, required this.mimeType, required this.content});
   final String name, mimeType, content;
@@ -31,14 +36,14 @@ class RequestAttachment {
   Uint8List decode() {
     if (name.trim().isEmpty ||
         name.trim().length > 200 ||
-        content.length > 699052 ||
+        content.length > ((maxBytes + 2) ~/ 3) * 4 ||
         !RegExp(r'^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$')
             .hasMatch(content)) {
       throw const FormatException('requests.attachment_invalid');
     }
     final bytes = base64Decode(content);
     if (bytes.isEmpty ||
-        bytes.length > 512 * 1024 ||
+        bytes.length > maxBytes ||
         !switch (mimeType) {
           'application/pdf' => bytes.length >= 5 &&
               ascii.decode(bytes.sublist(0, 5), allowInvalid: true) == '%PDF-',
@@ -238,7 +243,10 @@ List<DateTime> departureInstants(
   return result..sort();
 }
 
-class RequestReview {
+class RequestReview extends Equatable {
+  @override
+  List<Object?> get props => [status, by, reason, employeeId, department, at];
+
   RequestReview.fromJson(Map<String, dynamic> json)
       : status = json['status'] as String,
         by = json['reviewedBy'] as String,
@@ -251,7 +259,10 @@ class RequestReview {
   final DateTime at;
 }
 
-class RequestChange {
+class RequestChange extends Equatable {
+  @override
+  List<Object?> get props => [action, by, reason, at];
+
   RequestChange.fromJson(Map<String, dynamic> json)
       : action = json['action'] as String,
         by = json['by'] as String,
@@ -261,7 +272,37 @@ class RequestChange {
   final DateTime at;
 }
 
-class EmployeeRequest {
+class EmployeeRequest extends Equatable {
+  @override
+  List<Object?> get props => [
+        id,
+        employeeId,
+        employeeName,
+        nationalId,
+        type,
+        status,
+        reason,
+        from,
+        to,
+        excuseType,
+        shiftId,
+        attendanceId,
+        decidedBy,
+        decisionReason,
+        managerStage,
+        managerEmployeeId,
+        managerDepartment,
+        durationMinutes,
+        submittedAt,
+        proposedCheckOut,
+        decidedAt,
+        salaryDeductionDays,
+        managerReview,
+        lastChange,
+        attendance,
+        attachments
+      ];
+
   EmployeeRequest.fromJson(Map<String, dynamic> json)
       : id = json['id'] as String,
         employeeId = json['employeeId'] as String,
@@ -319,6 +360,12 @@ class EmployeeRequest {
   final RequestChange? lastChange;
   final AttendanceRecord? attendance;
   final List<RequestAttachment> attachments;
+  bool canReview(String? reviewerId) =>
+      reviewerId != null &&
+      employeeId != reviewerId &&
+      managerEmployeeId == reviewerId &&
+      status == 'pending' &&
+      managerStage == 'pending';
   bool get canWithdraw => status == 'pending' && requestTypes.contains(type);
   bool matches(RequestSubmission submission) {
     final input = submission.toJson();

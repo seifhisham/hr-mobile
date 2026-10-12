@@ -65,6 +65,14 @@ class _NotificationRefreshState extends ConsumerState<NotificationRefresh>
         ref.read(notificationsProvider.notifier).refresh(afterMutation: true);
       }
     });
+    ref.listen(managedRequestsProvider, (previous, next) {
+      if (next.action is RequestSuccess<EmployeeRequest> &&
+          !identical(previous?.action, next.action) &&
+          _foreground &&
+          ref.read(sessionProvider).userOrNull != null) {
+        ref.read(notificationsProvider.notifier).refresh(afterMutation: true);
+      }
+    });
     return widget.child;
   }
 }

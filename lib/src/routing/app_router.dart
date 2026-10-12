@@ -10,6 +10,10 @@ import '../ui/requests/new_request_screen.dart';
 import '../ui/requests/request_details_screen.dart';
 import '../ui/requests/department_reviews_screen.dart';
 import '../ui/notifications/notifications_screen.dart';
+import '../ui/sales/sales_screen.dart';
+import '../ui/sales/sales_form_screen.dart';
+import '../ui/sales/sales_details_screen.dart';
+import '../ui/employee_navigation.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -32,6 +36,65 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       };
     },
     routes: [
+      ShellRoute(
+        builder: (context, state, child) => AppScaffold(
+          bottomNavigationBar: EmployeeNavigation(
+              index: switch (state.uri.path) {
+            '/attendance' => 1,
+            AppRoutes.requests => 2,
+            AppRoutes.account => 3,
+            AppRoutes.sales => 4,
+            _ => 0,
+          }),
+          body: child,
+        ),
+        routes: [
+          GoRoute(
+              path: AppRoutes.home,
+              name: 'home',
+              pageBuilder: (context, state) =>
+                  _workspacePage(state, const HomePage())),
+          GoRoute(
+              path: '/attendance',
+              name: 'attendance',
+              pageBuilder: (context, state) =>
+                  _workspacePage(state, const AttendanceScreen())),
+          GoRoute(
+              path: AppRoutes.requests,
+              name: 'requests',
+              pageBuilder: (context, state) =>
+                  _workspacePage(state, const RequestsScreen())),
+          GoRoute(
+              path: AppRoutes.account,
+              name: 'account',
+              pageBuilder: (context, state) =>
+                  _workspacePage(state, const AccountScreen())),
+          GoRoute(
+              path: AppRoutes.sales,
+              name: 'sales',
+              pageBuilder: (context, state) =>
+                  _workspacePage(state, const SalesScreen())),
+        ],
+      ),
+      GoRoute(
+          path: AppRoutes.teamSales,
+          name: 'teamSales',
+          builder: (_, state) => const SalesScreen(team: true)),
+      GoRoute(
+          path: AppRoutes.newSalesActivity,
+          name: 'newSalesActivity',
+          builder: (_, state) => const SalesFormScreen()),
+      GoRoute(
+          path: AppRoutes.salesActivityDetails,
+          name: 'salesActivityDetails',
+          builder: (_, state) => SalesDetailsScreen(
+              id: state.pathParameters['id']!,
+              team: state.uri.queryParameters['team'] == 'true')),
+      GoRoute(
+          path: AppRoutes.editSalesActivity,
+          name: 'editSalesActivity',
+          builder: (_, state) =>
+              SalesFormScreen(id: state.pathParameters['id']!)),
       GoRoute(
           path: AppRoutes.notifications,
           name: 'notifications',
@@ -46,23 +109,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => RequestDetailsScreen(
               id: state.pathParameters['id']!, managed: true)),
       GoRoute(
-          path: AppRoutes.requests,
-          name: 'requests',
-          builder: (context, state) => const RequestsScreen()),
-      GoRoute(
           path: AppRoutes.newRequest,
           name: 'newRequest',
           builder: (context, state) => NewRequestScreen(
+              initialType: state.uri.queryParameters['type'],
               attendanceId: state.uri.queryParameters['attendanceId'])),
       GoRoute(
           path: AppRoutes.requestDetails,
           name: 'requestDetails',
           builder: (context, state) =>
               RequestDetailsScreen(id: state.pathParameters['id']!)),
-      GoRoute(
-          path: '/attendance',
-          name: 'attendance',
-          builder: (context, state) => const AttendanceScreen()),
       GoRoute(
           path: AppRoutes.splash,
           name: 'session',
@@ -71,14 +127,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: AppRoutes.login,
           name: 'login',
           builder: (context, state) => const LoginScreen()),
-      GoRoute(
-          path: AppRoutes.home,
-          name: 'home',
-          builder: (context, state) => const HomePage()),
-      GoRoute(
-          path: AppRoutes.account,
-          name: 'account',
-          builder: (context, state) => const AccountScreen()),
       GoRoute(
           path: AppRoutes.changePassword,
           name: 'changePassword',
@@ -102,3 +150,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+CustomTransitionPage<void> _workspacePage(GoRouterState state, Widget child) =>
+    CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: AppDurations.medium,
+      reverseTransitionDuration: AppDurations.normal,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        if (MediaQuery.disableAnimationsOf(context)) return child;
+        final curved = animation.drive(CurveTween(curve: AppCurves.smooth));
+        return FadeTransition(
+          opacity: curved.drive(Tween<double>(begin: 0.85, end: 1)),
+          child: child,
+        );
+      },
+    );

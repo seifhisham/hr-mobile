@@ -52,12 +52,25 @@ class FakeRequests implements RequestsRepository {
   final List<Either<Failure, List<EmployeeRequest>>> loads;
   Either<Failure, EmployeeRequest>? response;
   Completer<void>? wait;
+  Completer<void>? loadWait;
   int posts = 0, patches = 0;
   @override
-  FutureEither<List<EmployeeRequest>> load() async => loads.removeAt(0);
+  FutureEither<List<EmployeeRequest>> load() async {
+    await loadWait?.future;
+    return loads.removeAt(0);
+  }
+
   @override
   FutureEither<EmployeeRequest> submit(RequestSubmission input) async {
     posts++;
+    await wait?.future;
+    return response ?? left(const NetworkFailure('Lost response'));
+  }
+
+  @override
+  FutureEither<EmployeeRequest> review(
+      String id, String status, String reason) async {
+    patches++;
     await wait?.future;
     return response ?? left(const NetworkFailure('Lost response'));
   }
@@ -70,6 +83,137 @@ class FakeRequests implements RequestsRepository {
 }
 
 void main() {
+  EmployeeRequest managedItem(
+          {String stage = 'pending', String reason = 'Coverage arranged'}) =>
+      EmployeeRequest.fromJson({
+        ...requestJson(),
+        'employeeId': 'colleague',
+        'managerEmployeeId': 'manager',
+        'managerStage': stage,
+        if (stage != 'pending')
+          'managerReview': {
+            'status': stage,
+            'employeeId': 'manager',
+            'reviewedBy': 'Manager',
+            'reviewedAt': '2026-10-07T10:00:00Z',
+            'reason': reason
+          }
+      });
+  test(
+      'manager review validates authorization and reason, blocks duplicates and reconciles lost response',
+      () async {
+    final item = managedItem();
+    final reviewed = managedItem(stage: 'approved');
+    final repository = FakeRequests([
+      right([item]),
+      right([reviewed])
+    ]);
+    final controller = RequestsController(repository,
+        enabled: false, managed: true, employeeId: 'manager');
+    addTearDown(controller.dispose);
+    await controller.refresh();
+    await controller.review(item, 'approved', 'bad');
+    await controller.review(item, 'withdrawn', 'Coverage arranged');
+    expect(repository.patches, 0);
+    repository.wait = Completer<void>();
+    final action = controller.review(item, 'approved', '  Coverage arranged  ');
+    await controller.review(item, 'rejected', 'Coverage unavailable');
+    expect(repository.patches, 1);
+    repository.wait!.complete();
+    await action;
+    expect(controller.state.pending, isNull);
+    expect(controller.state.noticeKey, 'requests.confirmed');
+    expect(controller.state.items.single.status, 'pending');
+    expect(controller.state.items.single.salaryDeductionDays, isNull);
+    await controller.review(item, 'approved', 'Coverage arranged');
+    expect(repository.patches, 1);
+    expect(item.canReview('colleague'), false);
+    expect(item.canReview('wrong-manager'), false);
+    expect(item.canReview(null), false);
+  });
+  test(
+      'failed manager reconciliation blocks reviews until refreshed; 403 removes stale access',
+      () async {
+    final item = managedItem();
+    final repository = FakeRequests([
+      right([item]),
+      left(const NetworkFailure('Offline')),
+      right([item]),
+      right([])
+    ]);
+    final controller = RequestsController(repository,
+        enabled: false, managed: true, employeeId: 'manager');
+    addTearDown(controller.dispose);
+    await controller.refresh();
+    await controller.review(item, 'rejected', 'Coverage unavailable');
+    expect(controller.state.pending, isA<PendingManagerReview>());
+    await controller.review(item, 'rejected', 'Coverage unavailable');
+    expect(repository.patches, 1);
+    await controller.refresh();
+    expect(controller.state.pending, isNull);
+    expect(controller.state.noticeKey, 'requests.not_confirmed');
+    repository.response =
+        left(const ServerFailure('Assignment changed', statusCode: 403));
+    await controller.review(item, 'rejected', 'Coverage unavailable');
+    expect(controller.state.items, isEmpty);
+    expect(controller.state.action, isA<RequestFailure<EmployeeRequest>>());
+  });
+  test(
+      'review service sends strict trimmed payload and preserves server workflow',
+      () async {
+    final client = Dio(BaseOptions(baseUrl: 'http://localhost/api'));
+    addTearDown(() => client.close());
+    client.httpClientAdapter = TestAdapter((request) {
+      expect(request.method, 'PATCH');
+      expect(request.path, '/requests/request-a/manager-review');
+      expect(request.data,
+          {'status': 'rejected', 'reason': 'Coverage unavailable'});
+      return jsonResponse({...requestJson(), 'managerStage': 'rejected'});
+    });
+    final result = (await RequestsService(client: client)
+            .review('request-a', 'rejected', ' Coverage unavailable '))
+        .getOrElse((f) => throw f);
+    expect(result.status, 'pending');
+    expect(result.managerStage, 'rejected');
+    expect(result.salaryDeductionDays, isNull);
+  });
+  test('managed queue follows cursor pages from the first page', () async {
+    final calls = <RequestOptions>[];
+    final client = Dio(BaseOptions(baseUrl: 'http://localhost/api'));
+    addTearDown(() => client.close());
+    client.httpClientAdapter = TestAdapter((request) {
+      calls.add(request);
+      expect(request.path, '/requests/managed');
+      expect(request.queryParameters['limit'], 50);
+      return jsonResponse(request.queryParameters['before'] == null
+          ? List.generate(50, (i) => requestJson(id: 'request-$i'))
+          : [requestJson(id: 'notification-target')]);
+    });
+    final service = RequestsService(client: client);
+    final items = (await service.loadManaged()).getOrElse((f) => throw f);
+    expect(items.last.id, 'notification-target');
+    expect(items.length, 51);
+    expect(calls[1].queryParameters['before'], 'request-49');
+    await service.loadManaged();
+    expect(calls[2].queryParameters.containsKey('before'), false);
+  });
+  for (final code in [403, 404, 409]) {
+    test('manager review $code blocks actions even if refresh fails', () async {
+      final item = managedItem();
+      final repository = FakeRequests([
+        right([item]),
+        left(const NetworkFailure('Offline'))
+      ], response: left(ServerFailure('Review unavailable', statusCode: code)));
+      final controller = RequestsController(repository,
+          enabled: false, managed: true, employeeId: 'manager');
+      addTearDown(controller.dispose);
+      await controller.refresh();
+      await controller.review(item, 'approved', 'Coverage arranged');
+      expect(controller.state.noticeKey, 'requests.review_unavailable');
+      await controller.review(item, 'rejected', 'Coverage unavailable');
+      expect(repository.patches, 1);
+    });
+  }
   final user = AppUser.fromJson(profile,
       schedule: WorkSchedule.fromJson(schedules.first));
   test(
@@ -167,12 +311,21 @@ void main() {
                 name: 'note.pdf', mimeType: 'application/pdf', content: '!!!!')
             .decode(),
         throwsFormatException);
+    final bytes = List<int>.filled(RequestAttachment.maxBytes, 65)
+      ..setRange(0, 5, ascii.encode('%PDF-'));
+    expect(
+        RequestAttachment(
+                name: 'large.pdf',
+                mimeType: 'application/pdf',
+                content: base64Encode(bytes))
+            .decode()
+            .length,
+        RequestAttachment.maxBytes);
     expect(
         () => RequestAttachment(
-                name: 'note.pdf',
-                mimeType: 'application/pdf',
-                content: base64Encode(List.filled(524289, 65)))
-            .decode(),
+            name: 'note.pdf',
+            mimeType: 'application/pdf',
+            content: base64Encode([...bytes, 65])).decode(),
         throwsFormatException);
     expect(
         () => RequestAttachment(
@@ -191,7 +344,7 @@ void main() {
     final reviewed = EmployeeRequest.fromJson({
       ...requestJson(),
       'managerStage': 'rejected',
-      'managerReview': {
+      'managerReview': const {
         'status': 'rejected',
         'reviewedBy': 'Department manager',
         'reviewedAt': '2026-10-06T10:01:00Z',

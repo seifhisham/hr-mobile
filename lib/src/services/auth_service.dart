@@ -16,12 +16,21 @@ class AuthService {
   final _changes = StreamController<AppUser?>.broadcast();
   String? _token;
   int _revision = 0;
+  int get sessionRevision => _revision;
   Stream<AppUser?> get authStateChanges => _changes.stream;
 
   /// Install once on the shared client before authenticated requests.
   void initialize() {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
+        final expectedRevision = options.extra['expectedSessionRevision'];
+        if (expectedRevision != null && expectedRevision != _revision) {
+          handler.reject(DioException(
+              requestOptions: options,
+              type: DioExceptionType.cancel,
+              message: 'Session changed'));
+          return;
+        }
         if (_token != null &&
             options.uri.origin == Uri.parse(_dio.options.baseUrl).origin &&
             !options.uri.path.endsWith('/auth/login')) {
@@ -123,13 +132,21 @@ class AuthService {
       }, operation: 'auth.changePassword', category: LogCategory.auth);
 
   FutureEither<void> logout() => runTask(() async {
+        final token = _token;
+        // End local tracking/access before waiting for remote revocation.
+        final clearing = _clearSession();
+        final revision = _revision;
+        await clearing;
         try {
-          if (_token != null) await _dio.post<void>('/auth/logout');
+          if (token != null) {
+            await _dio.post<void>('/auth/logout',
+                options: Options(
+                    headers: {'Authorization': 'Bearer $token'},
+                    extra: {'expectedSessionRevision': revision}));
+          }
         } on DioException {
           throw const NetworkFailure(
               'Signed out on this device. Server sign-out could not be confirmed.');
-        } finally {
-          await _clearSession();
         }
       }, operation: 'auth.logout', category: LogCategory.auth);
 

@@ -56,6 +56,7 @@ class EmployeeProfile extends Equatable {
       required this.jobTitle,
       required this.startDate,
       required this.active,
+      this.salesEnabled = false,
       this.scheduleId});
   final String id;
   final String employeeNumber;
@@ -66,6 +67,7 @@ class EmployeeProfile extends Equatable {
   final String jobTitle;
   final String startDate;
   final bool active;
+  final bool salesEnabled;
   final String? scheduleId;
   factory EmployeeProfile.fromJson(Map<String, dynamic> json) =>
       EmployeeProfile(
@@ -78,6 +80,7 @@ class EmployeeProfile extends Equatable {
           jobTitle: _text(json, 'jobTitle'),
           startDate: _text(json, 'startDate'),
           active: json['active'] as bool,
+          salesEnabled: json['salesEnabled'] as bool? ?? false,
           scheduleId: json['scheduleId'] as String?);
   @override
   List<Object?> get props => [
@@ -90,6 +93,7 @@ class EmployeeProfile extends Equatable {
         jobTitle,
         startDate,
         active,
+        salesEnabled,
         scheduleId
       ];
 }

@@ -11,7 +11,8 @@ This file documents the shared design conventions. Consult it before changing UI
 - **Dark mode:** Light and dark themes are supported; app can follow system brightness. Use semantic colors — do not branch on brightness in widgets for basic surfaces.
 - **Customization:** Global `ThemeData` lives in `lib/src/theme/theme.dart` — avoid one-off `ThemeData` overrides in feature widgets.
 
-- **Seed color:** `#183C35` (used to derive `ColorScheme` via `ColorScheme.fromSeed` where applicable).
+- **Light palette:** blue `#2457A7`, pale blue `#DBEAFE`, background `#F7F9FC`, and navy dock `#17263D`. Dark mode uses a navy canvas and lighter blue actions.
+- **Seed color:** `#2457A7` (used to derive `ColorScheme` via `ColorScheme.fromSeed` where applicable).
 
 ---
 
@@ -171,8 +172,9 @@ For agent workflows and architecture boundaries, see **[AGENTS.md](AGENTS.md)**.
 
 ## Employee workspace redesign
 
-- Calm, functional corporate style: deep forest actions, sage containers, neutral canvas and white cards in light mode. Dark mode uses the corresponding Material semantic roles.
-- Use the shared employee navigation for Home, Attendance, Requests and Account. Forms and details retain a directional, accessible back button.
+- Calm, functional corporate style: blue actions, pale blue containers, cool neutral canvas and white cards in light mode. Dark mode uses the corresponding Material semantic roles.
+- Use the shared employee navigation for Home, Attendance, Requests, Account and Sales. Forms and details retain a directional, accessible back button.
+- Sales uses the same blue actions, pale blue explanatory notices and rounded cards. Label pending, verified and returned activities in text; explain when work counts. Keep registration separate from team verification and provide a month/year selector. Form labels use semantic text colors for readable contrast.
 - Landing screens use descriptive headings and one primary action. Home highlights the server-provided date and assigned schedule; no invented attendance statistics.
 - Cards use the extra-large radius token; input controls use the large radius token. Headlines use semibold weight, with quieter secondary text.
 - Button state transitions use the quick duration and stop animating when the platform requests reduced motion.

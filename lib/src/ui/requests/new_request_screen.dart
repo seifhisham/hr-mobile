@@ -1,5 +1,4 @@
 import 'package:hrmobile/src/imports/imports.dart';
-import '../employee_navigation.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/employee_request.dart';
@@ -15,8 +14,9 @@ final requestAttachmentServiceProvider =
     Provider((ref) => RequestAttachmentService.instance);
 
 class NewRequestScreen extends ConsumerStatefulWidget {
-  const NewRequestScreen({super.key, this.attendanceId});
+  const NewRequestScreen({super.key, this.attendanceId, this.initialType});
   final String? attendanceId;
+  final String? initialType;
   @override
   ConsumerState<NewRequestScreen> createState() => _NewRequestScreenState();
 }
@@ -41,6 +41,9 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
     super.initState();
     tzdata.initializeTimeZones();
     WidgetsBinding.instance.addObserver(this);
+    if (requestTypes.contains(widget.initialType)) {
+      _type = widget.initialType!;
+    }
     if (widget.attendanceId != null) {
       _type = 'forgotten-check-out';
       _attendanceId = widget.attendanceId;
@@ -98,7 +101,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
   }
 
   void _confirmCandidate() {
-    if (!mounted || _candidate == null) return;
+    if (!mounted || _candidate == null || _createdId != null) return;
     final action = ref.read(requestsProvider).action;
     if (action case RequestSuccess(:final data)
         when data.matches(_candidate!)) {
@@ -106,6 +109,8 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
         _createdId = data.id;
         _attachments.clear();
       });
+      context.goNamed('requests');
+      showGlobalToast(message: 'requests.saved'.tr(), status: 'success');
     }
   }
 
@@ -263,223 +268,286 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
     return AppScaffold(
         appBar: AppTopBar(title: 'requests.new'.tr()),
         body: SafeArea(
-            child: SingleChildScrollView(
-                padding: EdgeInsets.all(AppSpacing.lg.w),
-                child: Form(
-                    key: _form,
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          EmployeeHeading(
-                              title: 'requests.new'.tr(),
-                              subtitle: 'design.requests_hint'.tr(),
-                              icon: Icons.edit_note_rounded),
-                          if (user?.employee == null)
-                            Text('account.no_employee'.tr())
-                          else if (_createdId != null) ...[
-                            Text('requests.saved'.tr(),
-                                style: context.textTheme.titleLarge),
-                            Text((_type == 'forgotten-check-out'
-                                    ? 'requests.forgotten_notice'
-                                    : 'requests.pending_notice')
-                                .tr()),
-                            AppButton(
-                                label: 'requests.details'.tr(),
-                                onPressed: () => context.pushReplacementNamed(
-                                    'requestDetails',
-                                    pathParameters: {'id': _createdId!})),
-                          ] else ...[
-                            Text('requests.form_intro'.tr(),
-                                style: context.textTheme.titleMedium),
-                            SizedBox(height: AppSpacing.lg.h),
-                            AppDropdown<String>(
-                                label: 'requests.type'.tr(),
-                                value: _type,
-                                enabled: !_busy(state),
-                                items: [
-                                  for (final type in requestTypes)
-                                    AppDropdownItem(
-                                        value: type,
-                                        label: requestTypeLabel(type))
-                                ],
-                                onChanged: (value) => setState(() {
-                                      _type = value!;
-                                      _errorKey = null;
-                                    })),
-                            SizedBox(height: AppSpacing.md.h),
-                            if (_type == 'forgotten-check-out') ...[
-                              Text('requests.forgotten_notice'.tr()),
-                              if (attendance.data.isLoading)
-                                const Center(
-                                    child: CircularProgressIndicator()),
-                              if (attendance.data
-                                  case RequestFailure(:final failure))
-                                Text(failure.message),
-                              AppDropdown<String>(
-                                  label: 'requests.open_record'.tr(),
-                                  value: record?.id,
-                                  enabled: !_busy(state),
-                                  items: [
-                                    for (final open in attendance
-                                            .snapshot?.records
-                                            .where((r) => r.checkOut == null) ??
-                                        <AttendanceRecord>[])
-                                      AppDropdownItem(
-                                          value: open.id,
-                                          label:
-                                              '${open.workDate} (${open.timezone})')
-                                  ],
-                                  onChanged: (value) => setState(() {
-                                        _attendanceId = value;
-                                        _departureDate = null;
-                                        _departureTime = null;
-                                        _updateDeparture();
-                                      })),
-                              if (record == null)
-                                Text('requests.open_record_required'.tr())
+            child: RefreshIndicator(
+                onRefresh: () async {
+                  if (!state.busy && !_preparing.isLoading) await _refresh();
+                },
+                child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(AppSpacing.lg.w),
+                    child: Form(
+                        key: _form,
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (user?.employee == null)
+                                Text('account.no_employee'.tr())
                               else ...[
-                                Text(
-                                    '${'attendance.check_in'.tr()}: ${requestTime(record.checkIn, record.timezone)}'),
-                                Text('requests.timezone_notice'.tr(
-                                    namedArgs: {'timezone': record.timezone})),
-                                AppDatePicker(
-                                    label: 'requests.departure_date'.tr(),
-                                    hint: 'requests.choose_date'.tr(),
-                                    value: _departureDate,
-                                    enabled: !_busy(state),
-                                    onChanged: (date) => setState(() {
-                                          _departureDate = date;
-                                          _updateDeparture();
-                                        })),
-                                AppTimePicker(
-                                    label: 'requests.departure_time'.tr(),
-                                    value: _departureTime,
-                                    enabled: !_busy(state),
-                                    onChanged: (time) => setState(() {
-                                          _departureTime = time;
-                                          _updateDeparture();
-                                        })),
-                                if (_instants.length > 1) ...[
-                                  Text('requests.ambiguous_time'.tr()),
-                                  AppDropdown<DateTime>(
-                                      label: 'requests.time_occurrence'.tr(),
-                                      value: _departure,
+                                Text('requests.type'.tr(),
+                                    style: context.textTheme.titleSmall),
+                                SizedBox(height: AppSpacing.sm),
+                                RequestTypeCards(
+                                    selectedType: _type,
+                                    onSelected: _busy(state)
+                                        ? null
+                                        : (value) => setState(() {
+                                              _type = value;
+                                              _errorKey = null;
+                                            })),
+                                SizedBox(height: AppSpacing.md.h),
+                                if (_type == 'forgotten-check-out') ...[
+                                  Text('requests.forgotten_notice'.tr()),
+                                  if (attendance.data.isLoading)
+                                    const Center(
+                                        child: CircularProgressIndicator()),
+                                  if (attendance.data
+                                      case RequestFailure(:final failure))
+                                    Text(failure.message),
+                                  AppDropdown<String>(
+                                      label: 'requests.open_record'.tr(),
+                                      value: record?.id,
                                       enabled: !_busy(state),
                                       items: [
-                                        for (final instant in _instants)
+                                        for (final open in attendance
+                                                .snapshot?.records
+                                                .where((r) =>
+                                                    r.checkOut == null) ??
+                                            <AttendanceRecord>[])
                                           AppDropdownItem(
-                                              value: instant,
-                                              label: _instantLabel(
-                                                  instant, record.timezone))
+                                              value: open.id,
+                                              label:
+                                                  '${open.workDate} (${open.timezone})')
                                       ],
-                                      onChanged: (time) =>
-                                          setState(() => _departure = time)),
-                                ],
-                              ],
-                            ] else ...[
-                              AppDatePicker(
-                                  label: 'requests.from'.tr(),
-                                  hint: 'requests.choose_date'.tr(),
-                                  value: _from,
-                                  enabled: !_busy(state),
-                                  onChanged: (date) =>
-                                      setState(() => _from = date)),
-                              SizedBox(height: AppSpacing.md.h),
-                              AppDatePicker(
-                                  label: 'requests.to'.tr(),
-                                  hint: 'requests.choose_date'.tr(),
-                                  value: _to,
-                                  enabled: !_busy(state),
-                                  onChanged: (date) =>
-                                      setState(() => _to = date)),
-                              Text('requests.range_hint'.tr()),
-                              if (_type == 'excuse') ...[
-                                SizedBox(height: AppSpacing.md.h),
-                                Text(user!.schedule == null
-                                    ? 'requests.schedule_required'.tr()
-                                    : '${user.schedule!.name}: ${user.schedule!.start} – ${user.schedule!.end}'),
-                                AppTextField(
-                                    label: 'requests.duration'.tr(),
-                                    controller: _minutes,
-                                    keyboardType: TextInputType.number,
-                                    enabled: !_busy(state)),
-                                AppDropdown<String>(
-                                    label: 'requests.excuse_type'.tr(),
-                                    value: _excuseType,
-                                    enabled: !_busy(state),
-                                    items: [
-                                      for (final type in excuseTypes)
-                                        AppDropdownItem(
-                                            value: type,
-                                            label:
-                                                'requests.excuse_types.${type.replaceAll('-', '_')}'
-                                                    .tr())
+                                      onChanged: (value) => setState(() {
+                                            _attendanceId = value;
+                                            _departureDate = null;
+                                            _departureTime = null;
+                                            _updateDeparture();
+                                          })),
+                                  if (record == null)
+                                    Text('requests.open_record_required'.tr())
+                                  else ...[
+                                    Text(
+                                        '${'attendance.check_in'.tr()}: ${requestTime(record.checkIn, record.timezone)}'),
+                                    Text('requests.timezone_notice'.tr(
+                                        namedArgs: {
+                                          'timezone': record.timezone
+                                        })),
+                                    AppDatePicker(
+                                        label: 'requests.departure_date'.tr(),
+                                        hint: 'requests.choose_date'.tr(),
+                                        value: _departureDate,
+                                        enabled: !_busy(state),
+                                        onChanged: (date) => setState(() {
+                                              _departureDate = date;
+                                              _updateDeparture();
+                                            })),
+                                    AppTimePicker(
+                                        label: 'requests.departure_time'.tr(),
+                                        value: _departureTime,
+                                        enabled: !_busy(state),
+                                        onChanged: (time) => setState(() {
+                                              _departureTime = time;
+                                              _updateDeparture();
+                                            })),
+                                    if (_instants.length > 1) ...[
+                                      Text('requests.ambiguous_time'.tr()),
+                                      AppDropdown<DateTime>(
+                                          label:
+                                              'requests.time_occurrence'.tr(),
+                                          value: _departure,
+                                          enabled: !_busy(state),
+                                          items: [
+                                            for (final instant in _instants)
+                                              AppDropdownItem(
+                                                  value: instant,
+                                                  label: _instantLabel(
+                                                      instant, record.timezone))
+                                          ],
+                                          onChanged: (time) => setState(
+                                              () => _departure = time)),
                                     ],
-                                    onChanged: (value) =>
-                                        setState(() => _excuseType = value!)),
-                                Text('requests.excuse_allowance'.tr()),
+                                  ],
+                                ] else ...[
+                                  AppDatePicker(
+                                      label: 'requests.from'.tr(),
+                                      hint: 'requests.choose_date'.tr(),
+                                      value: _from,
+                                      enabled: !_busy(state),
+                                      onChanged: (date) =>
+                                          setState(() => _from = date)),
+                                  SizedBox(height: AppSpacing.md.h),
+                                  AppDatePicker(
+                                      label: 'requests.to'.tr(),
+                                      hint: 'requests.choose_date'.tr(),
+                                      value: _to,
+                                      enabled: !_busy(state),
+                                      onChanged: (date) =>
+                                          setState(() => _to = date)),
+                                  if (_type == 'excuse') ...[
+                                    SizedBox(height: AppSpacing.md.h),
+                                    Text(user!.schedule == null
+                                        ? 'requests.schedule_required'.tr()
+                                        : '${user.schedule!.name}: ${user.schedule!.start} – ${user.schedule!.end}'),
+                                    AppTextField(
+                                        label: 'requests.duration'.tr(),
+                                        controller: _minutes,
+                                        keyboardType: TextInputType.number,
+                                        enabled: !_busy(state)),
+                                    AppDropdown<String>(
+                                        label: 'requests.excuse_type'.tr(),
+                                        value: _excuseType,
+                                        enabled: !_busy(state),
+                                        items: [
+                                          for (final type in excuseTypes)
+                                            AppDropdownItem(
+                                                value: type,
+                                                label:
+                                                    'requests.excuse_types.${type.replaceAll('-', '_')}'
+                                                        .tr())
+                                        ],
+                                        onChanged: (value) => setState(
+                                            () => _excuseType = value!)),
+                                  ],
+                                  SizedBox(height: AppSpacing.md.h),
+                                  Text('requests.deduction_policy'.tr(),
+                                      style: context.textTheme.bodySmall
+                                          ?.copyWith(
+                                              color: context
+                                                  .colors.onSurfaceVariant)),
+                                ],
+                                SizedBox(height: AppSpacing.md.h),
+                                AppTextArea(
+                                    label: (_type == 'excuse'
+                                            ? 'requests.optional_reason'
+                                            : 'requests.reason')
+                                        .tr(),
+                                    controller: _reason,
+                                    focusNode: _reasonFocus,
+                                    validator: _reasonValidator,
+                                    maxLength: _type == 'excuse' ? 120 : 500,
+                                    enabled: !_busy(state)),
+                                if (_type != 'forgotten-check-out') ...[
+                                  SizedBox(height: AppSpacing.md.h),
+                                  Semantics(
+                                      button: true,
+                                      enabled: !_busy(state) &&
+                                          _attachments.length < 3,
+                                      child: AppCard(
+                                          color: context
+                                              .colors.surfaceContainerLow,
+                                          onTap: _busy(state) ||
+                                                  _attachments.length >= 3
+                                              ? null
+                                              : _pickAttachment,
+                                          padding:
+                                              EdgeInsets.all(AppSpacing.lg),
+                                          child: SizedBox(
+                                              width: double.infinity,
+                                              child: Column(children: [
+                                                ExcludeSemantics(
+                                                    child: Container(
+                                                        padding: EdgeInsets.all(
+                                                            AppSpacing.md),
+                                                        decoration: BoxDecoration(
+                                                            color: context
+                                                                .colors
+                                                                .primaryContainer,
+                                                            borderRadius:
+                                                                AppBorders
+                                                                    .full),
+                                                        child: Icon(
+                                                            Icons
+                                                                .upload_file_outlined,
+                                                            size: AppSpacing.xl,
+                                                            color: context
+                                                                .colors
+                                                                .onPrimaryContainer))),
+                                                SizedBox(height: AppSpacing.md),
+                                                Text(
+                                                    (_attachments.length >= 3
+                                                            ? 'requests.attachment_limit'
+                                                            : 'requests.add_attachment')
+                                                        .tr(),
+                                                    textAlign: TextAlign.center,
+                                                    style: context
+                                                        .textTheme.titleMedium
+                                                        ?.copyWith(
+                                                            color: _busy(
+                                                                        state) ||
+                                                                    _attachments
+                                                                            .length >=
+                                                                        3
+                                                                ? context.colors
+                                                                    .onSurfaceVariant
+                                                                : context.colors
+                                                                    .primary)),
+                                                SizedBox(height: AppSpacing.sm),
+                                                Text(
+                                                    'requests.attachment_hint'
+                                                        .tr(),
+                                                    textAlign: TextAlign.center,
+                                                    style: context
+                                                        .textTheme.bodySmall
+                                                        ?.copyWith(
+                                                            color: context
+                                                                .colors
+                                                                .onSurfaceVariant)),
+                                              ])))),
+                                  for (var index = 0;
+                                      index < _attachments.length;
+                                      index++)
+                                    Padding(
+                                        padding:
+                                            EdgeInsets.only(top: AppSpacing.sm),
+                                        child: AppCard(
+                                            child: Row(children: [
+                                          ExcludeSemantics(
+                                              child: Icon(
+                                                  _attachments[index]
+                                                              .mimeType ==
+                                                          'application/pdf'
+                                                      ? Icons
+                                                          .picture_as_pdf_outlined
+                                                      : Icons.image_outlined,
+                                                  color:
+                                                      context.colors.primary)),
+                                          SizedBox(width: AppSpacing.md),
+                                          Expanded(
+                                              child: Text(
+                                                  _attachments[index].name,
+                                                  style: context
+                                                      .textTheme.bodyMedium)),
+                                          AppIconButton(
+                                              icon: Icons.close_rounded,
+                                              size: ButtonSize.large,
+                                              tooltip:
+                                                  'requests.remove_attachment'
+                                                      .tr(),
+                                              onPressed: _busy(state)
+                                                  ? null
+                                                  : () => setState(() =>
+                                                      _attachments
+                                                          .removeAt(index))),
+                                        ]))),
+                                ],
+                                SizedBox(height: AppSpacing.lg.h),
+                                if (_errorKey case final error?)
+                                  Semantics(
+                                      liveRegion: true,
+                                      child: Text(error.tr(),
+                                          style: TextStyle(
+                                              color: context.colors.error))),
+                                RequestFeedback(state: state),
+                                if (state.data
+                                    case RequestFailure(:final failure))
+                                  Text(failure.message),
+                                AppButton(
+                                    label: 'requests.submit'.tr(),
+                                    isLoading: _preparing.isLoading ||
+                                        state.action.isLoading,
+                                    onPressed: _busy(state) ? null : _submit),
                               ],
-                              SizedBox(height: AppSpacing.md.h),
-                              Text('requests.deduction_policy'.tr()),
-                            ],
-                            SizedBox(height: AppSpacing.md.h),
-                            AppTextArea(
-                                label: (_type == 'excuse'
-                                        ? 'requests.optional_reason'
-                                        : 'requests.reason')
-                                    .tr(),
-                                controller: _reason,
-                                focusNode: _reasonFocus,
-                                validator: _reasonValidator,
-                                maxLength: _type == 'excuse' ? 120 : 500,
-                                enabled: !_busy(state)),
-                            if (_type != 'forgotten-check-out') ...[
-                              SizedBox(height: AppSpacing.md.h),
-                              Text('requests.attachment_hint'.tr()),
-                              for (var index = 0;
-                                  index < _attachments.length;
-                                  index++)
-                                AppCard(
-                                    title: _attachments[index].name,
-                                    child: AppTextButton(
-                                        label:
-                                            'requests.remove_attachment'.tr(),
-                                        onPressed: _busy(state)
-                                            ? null
-                                            : () => setState(() =>
-                                                _attachments.removeAt(index)))),
-                              AppButton(
-                                  label: 'requests.add_attachment'.tr(),
-                                  variant: ButtonVariant.outline,
-                                  onPressed:
-                                      _busy(state) || _attachments.length >= 3
-                                          ? null
-                                          : _pickAttachment),
-                            ],
-                            SizedBox(height: AppSpacing.lg.h),
-                            if (_errorKey case final error?)
-                              Semantics(
-                                  liveRegion: true,
-                                  child: Text(error.tr(),
-                                      style: TextStyle(
-                                          color: context.colors.error))),
-                            RequestFeedback(state: state),
-                            if (state.data case RequestFailure(:final failure))
-                              Text(failure.message),
-                            AppButton(
-                                label: 'requests.submit'.tr(),
-                                isLoading: _preparing.isLoading ||
-                                    state.action.isLoading,
-                                onPressed: _busy(state) ? null : _submit),
-                            AppTextButton(
-                                label: (state.pending == null
-                                        ? 'requests.refresh'
-                                        : 'requests.reconcile')
-                                    .tr(),
-                                onPressed: state.busy || _preparing.isLoading
-                                    ? null
-                                    : _refresh),
-                          ],
-                        ])))));
+                            ]))))));
   }
 }

@@ -46,7 +46,7 @@ class _DepartmentReviewsScreenState
             title: 'notifications.department'.tr(),
             subtitle: 'requests.manager_notice'.tr(),
             icon: Icons.groups_outlined),
-        if (state.data.isLoading)
+        if (state.data.isLoading && state.previousItems == null)
           const Center(child: CircularProgressIndicator()),
         if (state.data case RequestFailure(:final failure))
           Text(failure.message),

@@ -38,4 +38,20 @@ void main() {
     expect(logs.join(), isNot(contains('secret-token')));
     dio.close();
   });
+  test('attendance errors cannot log location or session data', () async {
+    final logs = <Object>[];
+    final client = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    client.interceptors.add(DioLoggingInterceptor(logPrint: logs.add));
+    client.httpClientAdapter = TestAdapter((_) => jsonResponse(
+        {'message': 'Invalid capture latitude 30.026 token private-token'},
+        409));
+    await expectLater(
+        client.post<void>('/attendance/owned/location',
+            data: {'available': true, 'latitude': 30.026},
+            options:
+                Options(headers: {'Authorization': 'Bearer private-token'})),
+        throwsA(isA<DioException>()));
+    expect(logs, isEmpty);
+    client.close();
+  });
 }

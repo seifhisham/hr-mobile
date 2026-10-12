@@ -87,7 +87,9 @@ class RawToastState extends State<RawToast> {
       key: positionedKey,
       curve: Curves.easeOutBack,
       top: widget.toastPosition == ToastPosition.top
-          ? widget.getPosition() + 55
+          ? widget.getPosition() +
+              MediaQuery.paddingOf(context).top +
+              AppSpacing.md
           : null,
       bottom: widget.toastPosition == ToastPosition.bottom
           ? widget.getPosition() + 60
@@ -106,4 +108,3 @@ class RawToastState extends State<RawToast> {
     );
   }
 }
-

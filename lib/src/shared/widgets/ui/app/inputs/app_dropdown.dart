@@ -182,23 +182,66 @@ class AppDropdown<T> extends StatelessWidget {
       );
     }
 
-    return DropdownButtonFormField<T>(
-      isExpanded: true,
-      initialValue: value,
-      items: [
-        for (final item in items)
-          DropdownMenuItem<T>(
-            value: item.value,
-            enabled: item.enabled,
-            child: Text(item.label, overflow: TextOverflow.ellipsis),
-          ),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (label != null) ...[
+        Text(label!,
+            style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+        SizedBox(height: AppSpacing.sm),
       ],
-      onChanged: enabled ? onChanged : null,
-      decoration: InputDecoration(
-        isDense: true,
-        labelText: label,
-        hintText: hint,
+      DropdownButtonFormField<T>(
+        key: ValueKey(value),
+        isExpanded: true,
+        initialValue: value,
+        dropdownColor: cs.surfaceContainerLow,
+        borderRadius: AppBorders.card,
+        menuMaxHeight: MediaQuery.sizeOf(context).height * 0.5,
+        icon: Icon(Icons.expand_more_rounded, color: cs.onSurfaceVariant),
+        style: tt.bodyLarge
+            ?.copyWith(color: cs.onSurface, fontWeight: FontWeight.w500),
+        selectedItemBuilder: (context) => [
+          for (final item in items)
+            Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+        items: [
+          for (final item in items)
+            DropdownMenuItem<T>(
+              value: item.value,
+              enabled: item.enabled,
+              child: Row(children: [
+                Expanded(
+                    child: Text(item.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodyLarge?.copyWith(
+                            color: item.enabled
+                                ? cs.onSurface
+                                : cs.onSurfaceVariant))),
+                SizedBox(width: AppSpacing.sm),
+                if (item.value == value)
+                  Icon(Icons.check_rounded, color: cs.primary),
+              ]),
+            ),
+        ],
+        onChanged: enabled ? onChanged : null,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: hint,
+          filled: true,
+          fillColor: cs.surfaceContainerLow,
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.md),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: AppBorders.input,
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: AppBorders.input,
+              borderSide: BorderSide(color: cs.primary)),
+          disabledBorder: OutlineInputBorder(
+              borderRadius: AppBorders.input,
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3))),
+        ),
       ),
-    );
+    ]);
   }
 }

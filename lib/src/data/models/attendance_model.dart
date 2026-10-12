@@ -1,7 +1,21 @@
+import 'package:equatable/equatable.dart';
 import 'dart:typed_data';
 import 'user_model.dart';
+import 'attendance_location.dart';
 
-class AttendancePolicy {
+class AttendancePolicy extends Equatable {
+  @override
+  List<Object?> get props => [
+        latitude,
+        longitude,
+        radiusMeters,
+        maxAccuracyMeters,
+        maxCaptureAgeSeconds,
+        maxPhotoBytes,
+        photoFormats,
+        tracking
+      ];
+
   const AttendancePolicy(
       {required this.latitude,
       required this.longitude,
@@ -9,7 +23,9 @@ class AttendancePolicy {
       required this.maxAccuracyMeters,
       required this.maxCaptureAgeSeconds,
       required this.maxPhotoBytes,
-      required this.photoFormats});
+      required this.photoFormats,
+      this.tracking});
+  final AttendanceTrackingPolicy? tracking;
   final double latitude, longitude, radiusMeters, maxAccuracyMeters;
   final int maxCaptureAgeSeconds, maxPhotoBytes;
   final List<String> photoFormats;
@@ -21,10 +37,18 @@ class AttendancePolicy {
           maxAccuracyMeters: (json['maxAccuracyMeters'] as num).toDouble(),
           maxCaptureAgeSeconds: json['maxCaptureAgeSeconds'] as int,
           maxPhotoBytes: json['maxPhotoBytes'] as int,
-          photoFormats: (json['photoFormats'] as List).cast<String>());
+          photoFormats: (json['photoFormats'] as List).cast<String>(),
+          tracking: json['tracking'] == null
+              ? null
+              : AttendanceTrackingPolicy.fromJson(
+                  json['tracking'] as Map<String, dynamic>));
 }
 
-class AttendanceRecord {
+class AttendanceRecord extends Equatable {
+  @override
+  List<Object?> get props =>
+      [id, workDate, timezone, checkIn, checkOut, schedule, status, location];
+
   const AttendanceRecord(
       {required this.id,
       required this.workDate,
@@ -32,12 +56,31 @@ class AttendanceRecord {
       required this.checkOut,
       required this.timezone,
       required this.schedule,
-      this.status});
+      this.status,
+      this.location});
+  final AttendanceLocation? location;
   final String id, workDate, timezone;
   final DateTime checkIn;
   final DateTime? checkOut;
   final WorkSchedule schedule;
   final String? status;
+  Duration elapsedAt(DateTime now) {
+    final elapsed = (checkOut ?? now).difference(checkIn);
+    return elapsed.isNegative ? Duration.zero : elapsed;
+  }
+
+  double progressAt(DateTime now) {
+    int minutes(String time) {
+      final parts = time.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    }
+
+    final shiftMinutes =
+        (minutes(schedule.end) - minutes(schedule.start)) % 1440;
+    final duration = Duration(minutes: shiftMinutes == 0 ? 1440 : shiftMinutes);
+    return (elapsedAt(now).inSeconds / duration.inSeconds).clamp(0.0, 1.0);
+  }
+
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) =>
       AttendanceRecord(
           id: json['id'] as String,
@@ -49,10 +92,17 @@ class AttendanceRecord {
           timezone: json['timezone'] as String,
           schedule:
               WorkSchedule.fromJson(json['schedule'] as Map<String, dynamic>),
-          status: json['status'] as String?);
+          status: json['status'] as String?,
+          location: json['location'] == null
+              ? null
+              : AttendanceLocation.fromJson(
+                  json['location'] as Map<String, dynamic>));
 }
 
-class AttendanceSnapshot {
+class AttendanceSnapshot extends Equatable {
+  @override
+  List<Object?> get props => [workDate, records, schedule, policy];
+
   const AttendanceSnapshot(
       {required this.workDate,
       required this.records,
@@ -62,6 +112,8 @@ class AttendanceSnapshot {
   final List<AttendanceRecord> records;
   final WorkSchedule schedule;
   final AttendancePolicy policy;
+  AttendanceRecord? get open =>
+      records.where((r) => r.checkOut == null).firstOrNull;
   AttendanceRecord? get current =>
       records.where((r) => r.workDate == workDate).firstOrNull;
   AttendanceRecord? get olderOpen => records

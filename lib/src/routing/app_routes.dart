@@ -17,6 +17,11 @@ abstract final class AppRoutes {
   static const String notifications = '/notifications';
   static const String departmentReviews = '/department-reviews';
   static const String managedRequestDetails = '/department-reviews/:id';
+  static const String sales = '/sales';
+  static const String teamSales = '/sales/team';
+  static const String newSalesActivity = '/sales/new';
+  static const String salesActivityDetails = '/sales/activities/:id';
+  static const String editSalesActivity = '/sales/activities/:id/edit';
 
   /// Debug-only component gallery.
   static const String uiShowcase = '/debug/ui-showcase';

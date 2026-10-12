@@ -11,10 +11,21 @@ class RequestsService implements RequestsRepository {
   Dio get _dio => _client ?? AppConfig.dio;
   @override
   FutureEither<List<EmployeeRequest>> loadManaged() => runTask(() async {
-        final response = await _dio.get<List<dynamic>>('/requests/managed');
-        return response.data!
-            .map((r) => EmployeeRequest.fromJson(r as Map<String, dynamic>))
-            .toList();
+        final items = <EmployeeRequest>[];
+        String? before;
+        while (true) {
+          final response = await _dio.get<List<dynamic>>('/requests/managed',
+              queryParameters: {
+                'limit': 50,
+                if (before != null) 'before': before
+              });
+          final page = response.data!
+              .map((r) => EmployeeRequest.fromJson(r as Map<String, dynamic>))
+              .toList();
+          items.addAll(page);
+          if (page.length < 50) return items;
+          before = page.last.id;
+        }
       }, operation: 'requests.managed', category: LogCategory.network);
   @override
   FutureEither<List<EmployeeRequest>> load() => runTask(() async {
@@ -30,6 +41,15 @@ class RequestsService implements RequestsRepository {
             data: input.toJson());
         return EmployeeRequest.fromJson(response.data!);
       }, operation: 'requests.submit', category: LogCategory.network);
+  @override
+  FutureEither<EmployeeRequest> review(
+          String id, String status, String reason) =>
+      runTask(() async {
+        final response = await _dio.patch<Map<String, dynamic>>(
+            '/requests/${Uri.encodeComponent(id)}/manager-review',
+            data: {'status': status, 'reason': reason.trim()});
+        return EmployeeRequest.fromJson(response.data!);
+      }, operation: 'requests.managerReview', category: LogCategory.network);
   @override
   FutureEither<EmployeeRequest> withdraw(String id, String reason) =>
       runTask(() async {

@@ -48,12 +48,13 @@ AttendanceCapture evidence({DateTime? at}) => AttendanceCapture(
 class FakeCapture extends AttendanceCaptureService {
   int calls = 0;
   AttendanceCapture? value = evidence();
+  Failure? failure;
   Completer<void>? wait;
   @override
   FutureEither<AttendanceCapture?> capture(AttendancePolicy policy) async {
     calls++;
     await wait?.future;
-    return right(value);
+    return failure == null ? right(value) : left(failure!);
   }
 }
 
@@ -62,10 +63,15 @@ class FakeRepository implements AttendanceRepository {
   final List<Either<Failure, AttendanceSnapshot>> responses;
   int posts = 0;
   String? checkOutId;
+  Completer<void>? loadWait;
   Either<Failure, AttendanceRecord> result =
       left(const NetworkFailure('Lost response'));
   @override
-  FutureEither<AttendanceSnapshot> load() async => responses.removeAt(0);
+  FutureEither<AttendanceSnapshot> load() async {
+    await loadWait?.future;
+    return responses.removeAt(0);
+  }
+
   @override
   FutureEither<AttendanceRecord> submit(AttendanceCapture capture,
       {String? checkOutId}) async {
@@ -76,6 +82,82 @@ class FakeRepository implements AttendanceRepository {
 }
 
 void main() {
+  test('refresh retains visible attendance through loading and failure',
+      () async {
+    final open = snapshot(records: [recordJson()]);
+    final closed = snapshot(records: [recordJson(closed: true)]);
+    final repository = FakeRepository(
+        [right(open), left(const NetworkFailure('Offline')), right(closed)]);
+    final capture = FakeCapture();
+    final controller =
+        AttendanceController(repository, capture, enabled: false);
+    await controller.refresh();
+    repository.loadWait = Completer<void>();
+    final refresh = controller.refresh();
+    expect(controller.state.snapshot, same(open));
+    expect(controller.state.busy, false);
+    repository.loadWait!.complete();
+    await refresh;
+    expect(controller.state.data, isA<RequestFailure<AttendanceSnapshot>>());
+    expect(controller.state.snapshot, same(open));
+    await controller.refresh();
+    expect(controller.state.snapshot, same(closed));
+    expect(controller.state.previousSnapshot, isNull);
+    controller.dispose();
+  });
+  test('work progress uses elapsed check-in time across an overnight shift',
+      () {
+    final record = AttendanceRecord.fromJson(recordJson());
+    final halfway = record.checkIn.add(const Duration(hours: 4));
+    expect(record.elapsedAt(halfway), const Duration(hours: 4));
+    expect(record.progressAt(halfway), 0.5);
+    expect(record.progressAt(record.checkIn.subtract(const Duration(hours: 1))),
+        0);
+    expect(record.progressAt(record.checkIn.add(const Duration(hours: 10))), 1);
+    expect(record.elapsedAt(record.checkIn.add(const Duration(hours: 10))),
+        const Duration(hours: 10));
+    final closed = AttendanceRecord.fromJson(recordJson(closed: true));
+    expect(closed.elapsedAt(halfway.add(const Duration(days: 1))),
+        const Duration(hours: 6));
+  });
+
+  test('attendance starts policy request before records finish loading',
+      () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    final recordsStarted = Completer<void>();
+    final releaseRecords = Completer<void>();
+    var policyStarted = false;
+    dio.interceptors
+        .add(InterceptorsWrapper(onRequest: (options, handler) async {
+      if (options.path == '/attendance/me') {
+        recordsStarted.complete();
+        await releaseRecords.future;
+      } else if (options.path == '/attendance/policy') {
+        policyStarted = true;
+      }
+      handler.next(options);
+    }));
+    dio.httpClientAdapter =
+        TestAdapter((options) => options.path == '/attendance/policy'
+            ? jsonResponse(policyJson)
+            : jsonResponse({
+                'workDate': '2026-10-05',
+                'records': <Object?>[],
+                'schedule': schedules.first,
+              }));
+    final loading = AttendanceService(client: dio).load();
+    await recordsStarted.future;
+    await Future<void>.delayed(Duration.zero);
+    try {
+      expect(policyStarted, isTrue,
+          reason:
+              'Independent requests should overlap instead of adding latency.');
+    } finally {
+      releaseRecords.complete();
+      expect((await loading).isRight(), isTrue);
+      dio.close();
+    }
+  });
   test('camera preparation resizes, converts to JPEG and removes EXIF', () {
     final source = image.Image(width: 1800, height: 100);
     source.exif.imageIfd['Model'] = 'private-device';
@@ -83,13 +165,24 @@ void main() {
     expect(image.decodeJpg(encoded)!.exif.isEmpty, false);
     final prepared = prepareAttendancePhoto(encoded);
     final result = image.decodeJpg(prepared)!;
-    expect(result.width, 1600);
-    expect(result.height, lessThanOrEqualTo(1600));
+    expect(result.width, 1280);
+    expect(result.height, lessThanOrEqualTo(1280));
     expect(result.exif.isEmpty, true);
     expect(() => prepareAttendancePhoto(Uint8List.fromList([1, 2])),
         throwsA(isA<CaptureFailure>()));
   });
-  test('REST multipart uses exact fields and owned check-out ID', () async {
+  test('both REST uploads preserve GPS/time and send prepared JPEG bytes',
+      () async {
+    final photo = prepareAttendancePhoto(
+        image.encodePng(image.Image(width: 1600, height: 800)));
+    final at = DateTime.now().toUtc().subtract(const Duration(seconds: 10));
+    final capture = AttendanceCapture(
+        latitude: 30,
+        longitude: 31,
+        accuracyMeters: 5,
+        capturedAt: at,
+        photo: photo);
+    final paths = <String>[];
     final dio = Dio(BaseOptions(
         baseUrl: 'https://example.test/api',
         headers: {'Content-Type': 'application/json'}));
@@ -102,23 +195,42 @@ void main() {
         });
       }
       if (options.path == '/attendance/policy') return jsonResponse(policyJson);
-      expect(options.uri.path, '/api/attendance/owned-record/check-out');
+      paths.add(options.uri.path);
       expect(options.contentType, startsWith('multipart/form-data; boundary='));
       final form = options.data as FormData;
       expect(form.fields.map((f) => f.key).toSet(),
           {'latitude', 'longitude', 'accuracyMeters', 'capturedAt'});
-      expect(form.fields.firstWhere((f) => f.key == 'capturedAt').value,
-          endsWith('Z'));
+      expect(Map.fromEntries(form.fields), {
+        'latitude': '30.0',
+        'longitude': '31.0',
+        'accuracyMeters': '5.0',
+        'capturedAt': at.toIso8601String(),
+      });
       expect(form.files.single.key, 'photo');
       expect(form.files.single.value.contentType.toString(), 'image/jpeg');
       return jsonResponse(recordJson(closed: true));
     });
+    dio.interceptors
+        .add(InterceptorsWrapper(onRequest: (options, handler) async {
+      if (options.method == 'POST') {
+        final form = (options.data as FormData).clone();
+        final uploaded = await form.files.single.value
+            .finalize()
+            .fold<List<int>>([], (bytes, chunk) => bytes..addAll(chunk));
+        expect(uploaded, photo);
+        final decoded = image.decodeJpg(Uint8List.fromList(uploaded))!;
+        expect((decoded.width, decoded.height), (1280, 640));
+      }
+      handler.next(options);
+    }));
     final service = AttendanceService(client: dio);
     expect((await service.load()).isRight(), true);
+    expect((await service.submit(capture)).isRight(), true);
     expect(
-        (await service.submit(evidence(), checkOutId: 'owned-record'))
-            .isRight(),
+        (await service.submit(capture, checkOutId: 'owned-record')).isRight(),
         true);
+    expect(paths,
+        ['/api/attendance/check-in', '/api/attendance/owned-record/check-out']);
     dio.close();
   });
   test('server workday governs actions; closed and previous open block capture',
@@ -193,6 +305,51 @@ void main() {
       await controller.refresh();
       await controller.submit();
       expect(repository.posts, 0);
+      controller.dispose();
+    }
+  });
+  test('manual checkout racing automatic checkout reconciles 409 without retry',
+      () async {
+    final open = snapshot(records: [recordJson()]);
+    final closed = snapshot(records: [recordJson(closed: true)]);
+    final repository = FakeRepository([right(open), right(open), right(closed)])
+      ..result = left(const ServerFailure('Already closed', statusCode: 409));
+    final controller =
+        AttendanceController(repository, FakeCapture(), enabled: false);
+    await controller.refresh();
+    await controller.submit();
+    expect(repository.posts, 1);
+    expect(controller.state.snapshot!.current!.checkOut, isNotNull);
+    expect(controller.state.snapshot!.canSubmit, false);
+    expect(controller.state.noticeKey, 'attendance.confirmed');
+    controller.dispose();
+  });
+  test('confirmed writes expose open/closed interval even when read-back fails',
+      () async {
+    for (final checkOut in [false, true]) {
+      final before = snapshot(records: checkOut ? [recordJson()] : []);
+      final saved = AttendanceRecord.fromJson(recordJson(closed: checkOut));
+      final repository = FakeRepository([
+        right(before),
+        right(before),
+        left(const NetworkFailure('Read-back unavailable'))
+      ])
+        ..result = right(saved);
+      final controller =
+          AttendanceController(repository, FakeCapture(), enabled: false);
+      await controller.refresh();
+      final observed = <AttendanceSnapshot>[];
+      final remove = controller.addListener((value) {
+        if (value.data case RequestSuccess<AttendanceSnapshot>(:final data)) {
+          observed.add(data);
+        }
+      }, fireImmediately: false);
+      await controller.submit();
+      expect(observed.last.current, saved);
+      expect(controller.state.snapshot!.current, saved);
+      expect(controller.state.snapshot!.open != null, !checkOut);
+      expect(controller.state.pending, isNotNull);
+      remove();
       controller.dispose();
     }
   });

@@ -1,5 +1,4 @@
 import 'package:hrmobile/src/imports/imports.dart';
-import '../employee_navigation.dart';
 import '../auth/providers/session_provider.dart';
 import '../../data/models/employee_request.dart';
 import 'requests_provider.dart';
@@ -9,6 +8,85 @@ class RequestsScreen extends ConsumerStatefulWidget {
   const RequestsScreen({super.key});
   @override
   ConsumerState<RequestsScreen> createState() => _RequestsScreenState();
+}
+
+class _RequestCard extends StatelessWidget {
+  const _RequestCard({required this.item});
+  final EmployeeRequest item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final appColors = context.appColors;
+    final (statusColor, statusIcon) = switch (item.status) {
+      'approved' => (appColors.success, Icons.check_circle_outline_rounded),
+      'rejected' => (colors.error, Icons.cancel_outlined),
+      'pending' => (appColors.warning, Icons.schedule_rounded),
+      _ => (colors.onSurfaceVariant, Icons.remove_circle_outline_rounded),
+    };
+    final icon = switch (item.type) {
+      'sick' => Icons.health_and_safety_outlined,
+      'mission' => Icons.work_outline_rounded,
+      'excuse' || 'forgotten-check-out' => Icons.more_time_rounded,
+      'urgent' => Icons.priority_high_rounded,
+      _ => Icons.event_available_rounded,
+    };
+    void open() =>
+        context.pushNamed('requestDetails', pathParameters: {'id': item.id});
+    return AppCard(
+        onTap: open,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+                padding: EdgeInsets.all(AppSpacing.ms),
+                decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius: AppBorders.lg),
+                child: Icon(icon, color: colors.onPrimaryContainer)),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+                child: Text(requestTypeLabel(item.type),
+                    style: context.textTheme.titleMedium)),
+          ]),
+          SizedBox(height: AppSpacing.md),
+          Container(
+              padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+              decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: AppBorders.full),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(statusIcon, color: statusColor, size: AppSpacing.md),
+                SizedBox(width: AppSpacing.xs),
+                Flexible(
+                    child: Text(requestStatusLabel(item.status),
+                        style: context.textTheme.labelLarge
+                            ?.copyWith(color: colors.onSurface))),
+              ])),
+          SizedBox(height: AppSpacing.md),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.date_range_outlined,
+                color: colors.onSurfaceVariant, size: AppSpacing.ml),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+                child: Text(
+                    item.from == null
+                        ? 'requests.departure_request'.tr()
+                        : '${item.from} – ${item.to}',
+                    style: context.textTheme.bodyMedium)),
+          ]),
+          if (item.reason.isNotEmpty) ...[
+            SizedBox(height: AppSpacing.sm),
+            Text(item.reason,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodyMedium
+                    ?.copyWith(color: colors.onSurfaceVariant)),
+          ],
+          SizedBox(height: AppSpacing.sm),
+          AppTextButton(label: 'requests.details'.tr(), onPressed: open),
+        ]));
+  }
 }
 
 class _RequestsScreenState extends ConsumerState<RequestsScreen>
@@ -45,140 +123,149 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
     final employee =
         ref.watch(sessionProvider.select((s) => s.userOrNull?.employee));
     return AppScaffold(
-        bottomNavigationBar: const EmployeeNavigation(index: 2),
         body: SafeArea(
-            child: SingleChildScrollView(
-                padding: EdgeInsets.all(AppSpacing.lg.w),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      EmployeeHeading(
-                          title: 'requests.title'.tr(),
-                          subtitle: 'design.requests_hint'.tr(),
-                          icon: Icons.description_outlined),
-                      if (employee == null)
-                        Text('account.no_employee'.tr())
-                      else ...[
-                        AppButton(
-                            label: 'requests.new'.tr(),
-                            onPressed: state.busy || state.pending != null
-                                ? null
-                                : () => context.pushNamed('newRequest')),
-                        if (managed.items.isNotEmpty)
-                          AppTextButton(
-                              label: 'notifications.department'.tr(),
-                              onPressed: () =>
-                                  context.pushNamed('departmentReviews')),
-                        SizedBox(height: AppSpacing.lg.h),
-                        AppDropdown<String>(
-                            label: 'requests.status_filter'.tr(),
-                            value: _status ?? '',
-                            items: [
-                              AppDropdownItem(
-                                  value: '',
-                                  label: 'requests.all_statuses'.tr()),
-                              for (final status in requestStatuses)
-                                AppDropdownItem(
-                                    value: status,
-                                    label: requestStatusLabel(status))
-                            ],
-                            onChanged: (value) => setState(
-                                () => _status = value == '' ? null : value)),
-                        SizedBox(height: AppSpacing.md.h),
-                        AppDropdown<String>(
-                            label: 'requests.type'.tr(),
-                            value: _type ?? '',
-                            items: [
-                              AppDropdownItem(
-                                  value: '', label: 'requests.all_types'.tr()),
-                              for (final type in requestTypes)
-                                AppDropdownItem(
-                                    value: type, label: requestTypeLabel(type))
-                            ],
-                            onChanged: (value) => setState(
-                                () => _type = value == '' ? null : value)),
-                        AppTextButton(
-                            label: 'requests.clear_filters'.tr(),
-                            onPressed: () => setState(() {
-                                  _status = null;
-                                  _type = null;
-                                })),
-                        RequestFeedback(state: state),
-                        if (state.data.isLoading)
-                          const Center(child: CircularProgressIndicator()),
-                        if (state.data case RequestFailure(:final failure))
-                          Text(failure.message,
-                              style: TextStyle(color: context.colors.error)),
-                        if (state.data
-                                is RequestSuccess<List<EmployeeRequest>> &&
-                            _filtered(state).isEmpty)
+            child: RefreshIndicator(
+                onRefresh: () => ref.read(requestsProvider.notifier).refresh(),
+                child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(AppSpacing.lg.w),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           AppCard(
-                              child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                Icon(Icons.inbox_outlined,
-                                    color: context.colors.primary),
-                                SizedBox(height: AppSpacing.md),
-                                Text(
-                                    (state.items.isEmpty
-                                            ? 'requests.empty'
-                                            : 'requests.no_matches')
-                                        .tr(),
-                                    textAlign: TextAlign.center),
-                              ])),
-                        for (final item in _filtered(state)) ...[
-                          SizedBox(height: AppSpacing.md.h),
-                          AppCard(
-                              title: requestTypeLabel(item.type),
-                              leading: Icon(Icons.description_outlined,
-                                  color: context.colors.primary),
+                              color: context.colors.primaryContainer,
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: AppSpacing.sm,
-                                            vertical: AppSpacing.xs),
-                                        decoration: BoxDecoration(
-                                            color: context
-                                                .colors.secondaryContainer,
-                                            borderRadius: AppBorders.full),
-                                        child: Text(
-                                            requestStatusLabel(item.status),
-                                            style: context.textTheme.labelLarge
+                                    Icon(Icons.description_rounded,
+                                        color:
+                                            context.colors.onPrimaryContainer,
+                                        size: AppSpacing.xl),
+                                    SizedBox(height: AppSpacing.md),
+                                    Semantics(
+                                        header: true,
+                                        child: Text('requests.title'.tr(),
+                                            style: context
+                                                .textTheme.headlineMedium
                                                 ?.copyWith(
                                                     color: context.colors
-                                                        .onSecondaryContainer))),
-                                    SizedBox(height: AppSpacing.md),
-                                    Text(item.from == null
-                                        ? 'requests.departure_request'.tr()
-                                        : '${item.from} – ${item.to}'),
-                                    SizedBox(height: AppSpacing.sm),
-                                    Text(item.reason,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis),
-                                    AppTextButton(
-                                        label: 'requests.details'.tr(),
-                                        onPressed: () => context.pushNamed(
-                                            'requestDetails',
-                                            pathParameters: {'id': item.id})),
+                                                        .onPrimaryContainer))),
+                                    SizedBox(height: AppSpacing.xs),
+                                    Text('design.requests_hint'.tr(),
+                                        style: context.textTheme.bodyMedium
+                                            ?.copyWith(
+                                                color: context.colors
+                                                    .onPrimaryContainer)),
+                                    if (employee != null) ...[
+                                      SizedBox(height: AppSpacing.lg),
+                                      AppButton(
+                                          label: 'requests.new'.tr(),
+                                          prefixIcon: Icon(Icons.add_rounded,
+                                              color: context.colors.onPrimary),
+                                          onPressed: state.busy ||
+                                                  state.pending != null
+                                              ? null
+                                              : () => context
+                                                  .pushNamed('newRequest')),
+                                    ],
                                   ])),
-                        ],
-                        SizedBox(height: AppSpacing.lg.h),
-                        AppButton(
-                            label: (state.pending == null
-                                    ? 'requests.refresh'
-                                    : 'requests.reconcile')
-                                .tr(),
-                            variant: ButtonVariant.outline,
-                            isLoading: state.data.isLoading,
-                            onPressed: state.busy
-                                ? null
-                                : () => ref
-                                    .read(requestsProvider.notifier)
-                                    .refresh()),
-                      ],
-                    ]))));
+                          SizedBox(height: AppSpacing.lg),
+                          if (employee == null)
+                            Text('account.no_employee'.tr())
+                          else ...[
+                            Semantics(
+                                header: true,
+                                child: Text('requests.type'.tr(),
+                                    style: context.textTheme.titleLarge)),
+                            SizedBox(height: AppSpacing.md),
+                            RequestTypeCards(
+                                onSelected: state.busy || state.pending != null
+                                    ? null
+                                    : (type) => context.pushNamed('newRequest',
+                                        queryParameters: {'type': type})),
+                            SizedBox(height: AppSpacing.lg),
+                            if (managed.items.isNotEmpty)
+                              AppTextButton(
+                                  label: 'notifications.department'.tr(),
+                                  onPressed: () =>
+                                      context.pushNamed('departmentReviews')),
+                            SizedBox(height: AppSpacing.lg.h),
+                            AppCard(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                  AppDropdown<String>(
+                                      label: 'requests.status_filter'.tr(),
+                                      value: _status ?? '',
+                                      items: [
+                                        AppDropdownItem(
+                                            value: '',
+                                            label:
+                                                'requests.all_statuses'.tr()),
+                                        for (final status in requestStatuses)
+                                          AppDropdownItem(
+                                              value: status,
+                                              label: requestStatusLabel(status))
+                                      ],
+                                      onChanged: (value) => setState(() =>
+                                          _status =
+                                              value == '' ? null : value)),
+                                  SizedBox(height: AppSpacing.md.h),
+                                  AppDropdown<String>(
+                                      label: 'requests.type'.tr(),
+                                      value: _type ?? '',
+                                      items: [
+                                        AppDropdownItem(
+                                            value: '',
+                                            label: 'requests.all_types'.tr()),
+                                        for (final type in requestTypes)
+                                          AppDropdownItem(
+                                              value: type,
+                                              label: requestTypeLabel(type))
+                                      ],
+                                      onChanged: (value) => setState(() =>
+                                          _type = value == '' ? null : value)),
+                                  AppTextButton(
+                                      label: 'requests.clear_filters'.tr(),
+                                      onPressed: () => setState(() {
+                                            _status = null;
+                                            _type = null;
+                                          })),
+                                ])),
+                            SizedBox(height: AppSpacing.md),
+                            RequestFeedback(state: state),
+                            if (state.data.isLoading &&
+                                state.previousItems == null)
+                              const Center(child: CircularProgressIndicator()),
+                            if (state.data case RequestFailure(:final failure))
+                              Text(failure.message,
+                                  style:
+                                      TextStyle(color: context.colors.error)),
+                            if (state.data
+                                    is RequestSuccess<List<EmployeeRequest>> &&
+                                _filtered(state).isEmpty)
+                              AppCard(
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                    Icon(Icons.inbox_outlined,
+                                        color: context.colors.primary),
+                                    SizedBox(height: AppSpacing.md),
+                                    Text(
+                                        (state.items.isEmpty
+                                                ? 'requests.empty'
+                                                : 'requests.no_matches')
+                                            .tr(),
+                                        textAlign: TextAlign.center),
+                                  ])),
+                            for (final item in _filtered(state)) ...[
+                              SizedBox(height: AppSpacing.md.h),
+                              _RequestCard(item: item),
+                            ],
+                            SizedBox(height: AppSpacing.lg.h),
+                          ],
+                        ])))));
   }
 }

@@ -2,6 +2,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../config/app_config.dart';
 import '../data/models/attendance_model.dart';
+import '../data/models/attendance_location.dart';
+import 'auth_service.dart';
 import '../data/repositories/attendance_repository.dart';
 import '../utils/utils.dart';
 
@@ -10,13 +12,28 @@ class AttendanceService implements AttendanceRepository {
   static final instance = AttendanceService();
   final Dio? _client;
   Dio get _dio => _client ?? AppConfig.dio;
+  FutureEither<AttendanceLocation> reportLocation(
+          String id, AttendanceLocationFix? fix,
+          {CancelToken? cancelToken}) =>
+      runTask(() async {
+        final response = await _dio.post<Map<String, dynamic>>(
+            '/attendance/${Uri.encodeComponent(id)}/location',
+            data: fix?.toJson() ?? {'available': false},
+            options: Options(extra: {
+              if (_client == null)
+                'expectedSessionRevision': AuthService.instance.sessionRevision,
+            }),
+            cancelToken: cancelToken);
+        return AttendanceLocation.fromJson(response.data!);
+      }, operation: 'attendance.location', category: LogCategory.network);
   @override
   FutureEither<AttendanceSnapshot> load() => runTask(() async {
-        final me = await _dio.get<Map<String, dynamic>>('/attendance/me');
-        final policy =
-            await _dio.get<Map<String, dynamic>>('/attendance/policy');
+        final responses = await Future.wait([
+          _dio.get<Map<String, dynamic>>('/attendance/me'),
+          _dio.get<Map<String, dynamic>>('/attendance/policy'),
+        ]);
         return AttendanceSnapshot.fromJson(
-            me.data!, AttendancePolicy.fromJson(policy.data!));
+            responses[0].data!, AttendancePolicy.fromJson(responses[1].data!));
       }, operation: 'attendance.load', category: LogCategory.network);
   @override
   FutureEither<AttendanceRecord> submit(AttendanceCapture capture,

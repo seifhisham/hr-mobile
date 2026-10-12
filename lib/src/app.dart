@@ -2,6 +2,8 @@ import 'package:hrmobile/src/imports/core_imports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/theme_mode_provider.dart';
 import 'ui/notifications/notification_refresh.dart';
+import 'ui/sales/sales_refresh.dart';
+import 'ui/attendance/attendance_monitoring.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -20,8 +22,8 @@ class App extends ConsumerWidget {
     return MaterialApp.router(
       title: 'hrmobile',
       debugShowCheckedModeBanner: false,
-      theme: buildLightTheme(primaryColorHex: '#183C35'),
-      darkTheme: buildDarkTheme(primaryColorHex: '#183C35'),
+      theme: buildLightTheme(primaryColorHex: '#2457A7'),
+      darkTheme: buildDarkTheme(primaryColorHex: '#2457A7'),
       themeMode: ref.watch(themeModeProvider).value ?? ThemeMode.system,
       routerConfig: ref.watch(appRouterProvider),
       localizationsDelegates: context.localizationDelegates,
@@ -32,6 +34,8 @@ class App extends ConsumerWidget {
         current = SkeletonWrapper(child: current);
         current = SessionListenerWrapper(child: current);
         current = NotificationRefresh(child: current);
+        current = SalesRefresh(child: current);
+        current = AttendanceMonitoring(child: current);
         return current;
       },
     );

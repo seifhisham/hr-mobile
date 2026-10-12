@@ -1,8 +1,9 @@
 import 'package:hrmobile/src/imports/imports.dart';
 import '../auth/providers/session_provider.dart';
-import '../employee_navigation.dart';
-import '../../theme/theme_toggle_button.dart';
-import '../notifications/notification_button.dart';
+import '../attendance/attendance_summary.dart';
+import '../attendance/attendance_provider.dart';
+import '../sales/sales_provider.dart';
+import 'home_header.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -10,103 +11,63 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final user = session.userOrNull;
+    final salesAccess = accessValue(ref.watch(salesAccessProvider));
     if (user == null) return const SizedBox.shrink();
-    final colors = context.colors;
     return AppScaffold(
-      bottomNavigationBar: const EmployeeNavigation(index: 0),
       body: SafeArea(
-          child: SingleChildScrollView(
-              padding: EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(children: [
-                      Container(
-                          padding: EdgeInsets.all(AppSpacing.sm),
-                          decoration: BoxDecoration(
-                              color: colors.primaryContainer,
-                              borderRadius: AppBorders.md),
-                          child: Icon(Icons.spa_outlined,
-                              color: colors.onPrimaryContainer)),
-                      SizedBox(width: AppSpacing.md),
-                      Expanded(
-                          child: Text(user.companyName,
-                              style: context.textTheme.titleMedium)),
-                      const ThemeToggleButton(),
-                      const NotificationButton(),
-                    ]),
-                    SizedBox(height: AppSpacing.xl),
-                    Text('design.welcome'.tr(),
-                        style: context.textTheme.bodyLarge
-                            ?.copyWith(color: colors.onSurfaceVariant)),
-                    SizedBox(height: AppSpacing.xs),
-                    Text(user.employee?.name ?? user.name,
-                        style: context.textTheme.headlineLarge),
-                    SizedBox(height: AppSpacing.lg),
-                    if (session
-                        case SessionAuthenticated(
-                          profileRefresh: RequestFailure(:final failure)
-                        ))
-                      Text(
-                          '${'account.profile_stale'.tr()} ${failure.message}'),
-                    AppCard(
-                        color: colors.primary,
-                        padding: EdgeInsets.all(AppSpacing.lg),
-                        child: DefaultTextStyle.merge(
-                            style: TextStyle(color: colors.onPrimary),
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Align(
-                                      alignment:
-                                          AlignmentDirectional.centerStart,
-                                      child: Icon(Icons.wb_sunny_outlined,
-                                          color: colors.onPrimary)),
-                                  SizedBox(height: AppSpacing.md),
-                                  Text('design.your_workday'.tr(),
-                                      style: context.textTheme.headlineSmall
-                                          ?.copyWith(color: colors.onPrimary)),
-                                  SizedBox(height: AppSpacing.sm),
-                                  Text(user.today,
-                                      style: context.textTheme.titleLarge
-                                          ?.copyWith(color: colors.onPrimary)),
-                                  Text(user.timezone),
-                                  SizedBox(height: AppSpacing.lg),
-                                  if (user.employee == null)
-                                    Text('account.no_employee'.tr())
-                                  else ...[
-                                    Text(user.schedule == null
-                                        ? 'account.no_schedule'.tr()
-                                        : '${user.schedule!.name} · ${user.schedule!.start} – ${user.schedule!.end}'),
-                                    SizedBox(height: AppSpacing.lg),
-                                    AppButton(
-                                        label: 'design.open_attendance'.tr(),
-                                        color: colors.surface,
-                                        textColor: colors.primary,
-                                        onPressed: () =>
-                                            context.goNamed('attendance')),
-                                  ],
-                                ]))),
-                    SizedBox(height: AppSpacing.xl),
-                    Text('design.quick_access'.tr(),
-                        style: context.textTheme.titleLarge),
-                    SizedBox(height: AppSpacing.md),
-                    if (user.employee != null) ...[
-                      _shortcut(
-                          context,
-                          Icons.description_outlined,
-                          'design.manage_requests',
-                          'design.requests_hint',
-                          'requests'),
-                      SizedBox(height: AppSpacing.md),
-                    ],
-                    _shortcut(
-                        context,
-                        Icons.person_outline_rounded,
-                        'design.your_profile',
-                        'design.profile_hint',
-                        'account'),
-                  ]))),
+          child: RefreshIndicator(
+              onRefresh: () => ref.read(attendanceProvider.notifier).refresh(),
+              child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        HomeHeader(user: user),
+                        SizedBox(height: AppSpacing.lg),
+                        if (session
+                            case SessionAuthenticated(
+                              profileRefresh: RequestFailure(:final failure)
+                            ))
+                          Text(
+                              '${'account.profile_stale'.tr()} ${failure.message}'),
+                        if (user.employee == null)
+                          AppCard(child: Text('account.no_employee'.tr()))
+                        else ...[
+                          const AttendanceSummary(homeStyle: true),
+                        ],
+                        SizedBox(height: AppSpacing.xl),
+                        Text('design.quick_access'.tr(),
+                            style: context.textTheme.titleLarge),
+                        SizedBox(height: AppSpacing.md),
+                        if (user.employee != null) ...[
+                          _shortcut(context, Icons.home_work_outlined,
+                              'sales.title', 'sales.subtitle', 'sales'),
+                          SizedBox(height: AppSpacing.md),
+                          _shortcut(
+                              context,
+                              Icons.description_outlined,
+                              'design.manage_requests',
+                              'design.requests_hint',
+                              'requests'),
+                          SizedBox(height: AppSpacing.md),
+                        ],
+                        _shortcut(
+                            context,
+                            Icons.person_outline_rounded,
+                            'design.your_profile',
+                            'design.profile_hint',
+                            'account'),
+                        if (user.employee == null && salesAccess.canReview) ...[
+                          SizedBox(height: AppSpacing.md),
+                          _shortcut(
+                              context,
+                              Icons.home_work_outlined,
+                              'sales.team_title',
+                              'sales.team_hint',
+                              'teamSales'),
+                        ],
+                      ])))),
     );
   }
 

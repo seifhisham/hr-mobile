@@ -15,22 +15,22 @@ void showToast(
   final (backgroundColor, foregroundColor, iconColor) = switch (toastStatus) {
     'error' => (
         colorScheme.errorContainer,
-        colorScheme.onErrorContainer,
+        colorScheme.onError,
         colorScheme.error,
       ),
     'success' => (
         appColors.successContainer ?? appColors.success,
-        appColors.onSuccessContainer ?? appColors.onSuccess,
+        appColors.onSuccess,
         appColors.success,
       ),
     'warning' => (
         appColors.warningContainer ?? appColors.warning,
-        appColors.onWarningContainer ?? appColors.onWarning,
+        appColors.onWarning,
         appColors.warning,
       ),
     'info' => (
         appColors.infoContainer ?? appColors.info,
-        appColors.onInfoContainer ?? appColors.onInfo,
+        appColors.onInfo,
         appColors.info,
       ),
     _ => (
@@ -40,35 +40,49 @@ void showToast(
       ),
   };
 
-  return ToastBar(
+  late final ToastBar toast;
+  toast = ToastBar(
     position: ToastPosition.top,
     autoDismiss: autoDismiss ?? true,
     toastDuration: duration ?? const Duration(seconds: 2),
     animationDuration: const Duration(milliseconds: 150),
     animationCurve: Curves.easeIn,
     builder: (context) => ToastCard(
-      color: backgroundColor,
+      color: Color.alphaBlend(
+          backgroundColor.withValues(alpha: 0.35), colorScheme.surface),
+      borderColor: iconColor.withValues(alpha: 0.25),
       shadowColor: colorScheme.shadow.withValues(alpha: 0.05),
-      leading: AppIcon(
-        icon: icon ??
-            (toastStatus == 'success'
-                ? IconsaxPlusBold.tick_circle
-                : toastStatus == 'error'
-                    ? IconsaxPlusBold.danger
-                    : IconsaxPlusBold.info_circle),
-        color: iconColor,
-        size: 22.sp,
-      ),
-      title: Text(
-        message,
-        style: context.theme.textTheme.labelSmall!.copyWith(
-          fontWeight: FontWeight.w600,
-          fontSize: 11.sp,
+      leading: Container(
+        padding: EdgeInsets.all(AppSpacing.sm),
+        decoration:
+            BoxDecoration(color: iconColor, borderRadius: AppBorders.card),
+        child: AppIcon(
+          icon: icon ??
+              (toastStatus == 'success'
+                  ? IconsaxPlusBold.tick_circle
+                  : toastStatus == 'error' || toastStatus == 'warning'
+                      ? Icons.warning_rounded
+                      : IconsaxPlusBold.info_circle),
           color: foregroundColor,
+          size: AppSpacing.xl,
         ),
       ),
+      trailing: AppIconButton(
+          icon: Icons.close_rounded,
+          tooltip: 'requests.close'.tr(),
+          size: ButtonSize.large,
+          color: colorScheme.onSurfaceVariant,
+          onPressed: () => toast.remove()),
+      title: Text(
+        message,
+        style: context.textTheme.bodyMedium!.copyWith(
+          fontWeight: FontWeight.w500,
+          color: colorScheme.onSurface,
+        ),
       ),
-  ).show(context);
+    ),
+  );
+  toast.show(context);
 }
 
 void showGlobalToast({

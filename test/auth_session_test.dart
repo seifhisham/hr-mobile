@@ -293,4 +293,54 @@ void main() {
     expect((await oldResponse).isLeft(), isTrue);
     expect(await savedToken(), isNull);
   });
+  test('logout clears local session before remote revocation completes',
+      () async {
+    await login();
+    final started = Completer<void>();
+    final response = Completer<ResponseBody>();
+    client.httpClientAdapter = TestAdapter((options) {
+      if (options.path == '/auth/logout') {
+        started.complete();
+        return response.future;
+      }
+      return jsonResponse(profile);
+    });
+    final signedOut = auth.authStateChanges.first;
+    final pending = auth.logout();
+    await started.future;
+    expect(await signedOut, isNull);
+    expect(await savedToken(), isNull);
+    expect((await auth.getCurrentUser()).fold((_) => 'failure', (user) => user),
+        isNull);
+    response.complete(jsonResponse({'message': 'Signed out'}, 201));
+    expect((await pending).isRight(), true);
+  });
+  test('queued report cannot pick up a changed session token', () async {
+    await login();
+    final revision = auth.sessionRevision;
+    final started = Completer<void>();
+    final release = Completer<void>();
+    client.interceptors.insert(0,
+        InterceptorsWrapper(onRequest: (options, handler) async {
+      if (options.path.endsWith('/location')) {
+        started.complete();
+        await release.future;
+      }
+      handler.next(options);
+    }));
+    final report = client.post<void>('/attendance/old-record/location',
+        data: {'available': false},
+        options: Options(extra: {'expectedSessionRevision': revision}));
+    final rejected = expectLater(
+        report,
+        throwsA(isA<DioException>()
+            .having((error) => error.type, 'type', DioExceptionType.cancel)));
+    await started.future;
+    await auth.logout();
+    await login();
+    release.complete();
+    await rejected;
+    expect(requests.where((request) => request.path.endsWith('/location')),
+        isEmpty);
+  });
 }

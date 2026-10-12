@@ -1,8 +1,12 @@
 # Mobile app API and implementation guide
 
-Verified against the backend source on 2026-10-06. This is the shared Flutter integration guide for the employee application. All endpoint paths below include `/api`.
+Verified against the backend source on 2026-10-12. This is the shared Flutter integration guide for the employee application. All endpoint paths below include `/api`.
 
-Read [MOBILE_BRD.md](MOBILE_BRD.md) for what to build and acceptance criteria. Use this file for connection, authentication, attendance, notifications, and shared error handling. Read [MOBILE-REQUESTS.md](MOBILE-REQUESTS.md) when implementing request forms, history, withdrawal, or department manager recommendations; it owns the detailed request contract. Inspect current backend source when a contract changes, and keep both guides consistent.
+Read [MOBILE_BRD.md](MOBILE_BRD.md) for what to build and acceptance criteria. Use this file for connection, authentication, attendance, notifications, and shared error handling. Read [MOBILE-REQUESTS.md](MOBILE-REQUESTS.md) when implementing request forms, history, withdrawal, or direct manager recommendations; it owns the detailed request contract. Inspect current backend source when a contract changes, and keep both guides consistent.
+
+Location monitoring was added on 2026-10-12. Also copy/read [MOBILE-LOCATION.md](MOBILE-LOCATION.md) for the 150-metre departure boundary, five-minute return window, background reporting and unavailable-location handling. `GET /api/attendance/policy` includes `tracking`; own records and attendance reports include `location`. `POST /api/attendance/:id/location` submits a fresh fix or `{ "available": false }`. Missing location never forces checkout or creates a deduction. The original 50-metre manual capture rule is unchanged.
+
+Real estate sales was added on 2026-10-07. Section 12 contains the complete sales contract; MOBILE-REQUESTS.md section 10 contains the required mobile edits. Copy these two files together into the mobile project; MOBILE-SALES.md is not required for this handoff. Employee profiles now include `salesEnabled`; use `/api/sales/access` for current capabilities, not department names. Existing request and attendance workflows remain in scope.
 
 ## 1. Connection and common conventions
 
@@ -32,15 +36,25 @@ Read [MOBILE_BRD.md](MOBILE_BRD.md) for what to build and acceptance criteria. U
 | GET | `/api/attendance/me` | Own attendance and assigned schedule | `{ employee, schedule, workDate, records }` |
 | POST | `/api/attendance/check-in` | Check in with GPS/photo | Attendance record |
 | POST | `/api/attendance/:id/check-out` | Check out an owned record with GPS/photo | Attendance record |
+| POST | `/api/attendance/:id/location` | Report fresh location or unavailable location for owned open attendance | Location state, HTTP 201 |
 | GET | `/api/attendance/:id/evidence` | Own attendance evidence metadata | Evidence array |
 | GET | `/api/attendance/:id/photos/:event` | Private attendance photo | JPEG bytes |
 | POST | `/api/requests` | Submit an employee request | Pending request object |
 | GET | `/api/requests/me` | Own requests and decisions | Request array |
 | PATCH | `/api/requests/:id/withdraw` | Withdraw own pending request | Updated request |
-| GET | `/api/requests/managed` | Assigned manager's pending department queue | Request array |
+| GET | `/api/requests/managed` | Assigned manager's pending direct-report queue | Request array |
 | PATCH | `/api/requests/:id/manager-review` | Manager recommendation, not final HR decision | Updated pending request |
 | GET | `/api/notifications` | Accessible inbox and unread count | `{ items, unreadCount }` |
 | PATCH | `/api/notifications/:id/read` | Mark accessible notification read | Notification object |
+| GET | `/api/sales/access` | Current sales capabilities | `{ canSubmit, canReview, canSetTargets }` |
+| GET | `/api/sales/activities/me?month=2026-10` | Own monthly sales history | Activity array |
+| GET | `/api/sales/activities?month=2026-10` | Authorized team monthly sales history | Activity array |
+| GET | `/api/sales/activities/:id` | Accessible activity / reconcile submission | Activity object |
+| POST | `/api/sales/activities` | Register completed activity or signed contract | Activity object; 201 including replay |
+| PATCH | `/api/sales/activities/:id` | Correct own pending/returned activity | Updated activity |
+| PATCH | `/api/sales/activities/:id/review` | Authorized verification or return | Updated activity |
+| GET | `/api/sales/performance/me?month=2026-10` | Own monthly performance and targets | Array with zero or one row |
+| GET | `/api/sales/performance?month=2026-10` | Authorized team performance and targets | Summary array |
 
 All endpoints except health and login require authentication. Attendance and own-request endpoints require an employee-associated account. If `employee` is null in `/auth/me`, disable employee actions; the bootstrap administrator may have no employee profile. Employee identities for submissions are derived from the session: do not submit `employeeId`.
 
@@ -92,6 +106,7 @@ Response shape:
     "startDate": "2026-10-01",
     "scheduleId": "<schedule UUID>",
     "active": true,
+    "salesEnabled": false,
     "role": "employee",
     "monthlySalary": null,
     "salaryCurrency": "EGP"
@@ -101,7 +116,7 @@ Response shape:
 }
 ```
 
-`employee` can be null. `monthlySalary` can be null or zero. Keep `nationalId` and `employeeNumber` as strings; national IDs may have leading zeros. Employee profile and salary fields are read-only in the employee app. There is no employee profile update endpoint available to employee accounts.
+`employee` can be null. `monthlySalary` can be null or zero. `salesEnabled` is a boolean managed by HR/admin; tolerate a missing field as false when reading older cached profiles, and refresh capabilities from `/sales/access`. Keep `nationalId` and `employeeNumber` as strings; national IDs may have leading zeros. Employee profile and salary fields are read-only in the employee app. There is no employee profile update endpoint available to employee accounts.
 
 On launch with a stored token, call `/auth/me` before entering the signed-in app. Network failure is not proof of an invalid session. A protected endpoint's 401 normally means clear the invalid session and show sign-in. Login 401 means invalid credentials. Password-change 401 can mean an incorrect current password: retain the form and validate the session using `/auth/me`; if that also returns 401, clear the session. Do not apply unconditional sign-out to every password-change 401.
 
@@ -145,7 +160,16 @@ Current response:
   "maxAccuracyMeters": 50,
   "maxCaptureAgeSeconds": 120,
   "maxPhotoBytes": 5242880,
-  "photoFormats": ["jpeg", "png"]
+  "photoFormats": ["jpeg", "png"],
+  "tracking": {
+    "radiusMeters": 150,
+    "graceSeconds": 300,
+    "updateIntervalSeconds": 30,
+    "staleAfterSeconds": 90,
+    "maxCaptureAgeSeconds": 60,
+    "maxAccuracyMeters": 50,
+    "confirmationSeconds": 15
+  }
 }
 ```
 
@@ -169,7 +193,46 @@ Attendance record shape (also returned by both attendance POST endpoints):
 }
 ```
 
-Records in `/attendance/me.records` additionally include calculated `status`: `On time`, `Late`, `Not scheduled`, or `Missing check-out`. The POST response has no calculated status; refresh history afterward. Null `checkOut` means open, even when the status says Missing check-out. Lateness is based on the recorded schedule and grace period; an open record becomes Missing check-out when its shift end is reached.
+Records in `/attendance/me.records` additionally include calculated `status`: `On time`, `Late`, `Not scheduled`, or `Missing check-out`, and `location` as described below (or null when no monitoring state exists). The manual attendance POST response has no calculated status/location; refresh history afterward. Null `checkOut` means open, even when the status says Missing check-out. Lateness is based on the recorded schedule and grace period; an open record becomes Missing check-out when its shift end is reached.
+
+### POST /api/attendance/:id/location — background monitoring
+
+Use bearer authentication and JSON, with the exact owned open attendance ID. Send a fresh capture:
+
+```json
+{
+  "available": true,
+  "latitude": 30.026,
+  "longitude": 31.528179,
+  "accuracyMeters": 10,
+  "capturedAt": "2026-10-12T08:00:00Z"
+}
+```
+
+When permissions/services/fix acquisition are unavailable, send only `{ "available": false }` when connected. Do not send a cached fix as a new capture. No photo or employee ID is accepted. HTTP 201 returns the location state, also included in own attendance reads and authorized report rows:
+
+```json
+{
+  "status": "outside",
+  "lastCapturedAt": "2026-10-12T08:00:00.000Z",
+  "outsideSince": "2026-10-12T07:59:30.000Z",
+  "returnBy": "2026-10-12T08:05:00.000Z",
+  "distanceMeters": 323.1,
+  "accuracyMeters": 10,
+  "autoCheckedOutAt": null
+}
+```
+
+- Status is `inside`, `outside`, `unavailable`, or `auto-checked-out`. `lastCapturedAt`, `outsideSince`, `returnBy`, `distanceMeters`, `accuracyMeters`, and `autoCheckedOutAt` may be null. Location status is distinct from normal attendance status.
+- `tracking.radiusMeters` measures distance from the same company point; top-level `radiusMeters` still controls manual GPS/photo capture. An accurate fix is inside when `distance + accuracy <= 150`, outside when `distance - accuracy > 150`. Accuracy above 50 metres or overlapping the boundary marks unavailable and cancels the timer.
+- Two reliable outside readings received at least 15 seconds apart confirm departure. The second starts a five-minute server-owned deadline; ongoing reliable outside reports preserve it. Returning reliably inside cancels it.
+- Aim for a new fix every 30 seconds while attendance is open, including when stationary. Capture must be at most 60 seconds old, not future-dated, and strictly newer than the prior capture. Serialize requests; stale/future/repeated/out-of-order timestamps return 409. Invalid bodies return 400, missing authentication 401, missing/not-owned records 404, and closed attendance 409.
+- Explicit unavailability or more than 90 seconds without a fresh capture cancels the timer and leaves attendance open without a deduction. Recovery starts a new confirmation/full return window. Never force checkout locally because location/network reporting stops.
+- A backend worker checks every ten seconds and automatically closes attendance at the saved deadline only with fresh outside evidence. State/deadline persist across restarts. Checkout is audited as `attendance.auto_checked_out`, without a fabricated photo or payroll deduction. Normal checkout and HR correction clear monitoring. Another check-in that workday remains blocked by the existing single-interval rule.
+- Configure background permissions/lifecycle for the app's supported platforms and explain tracking before requesting permissions. Start/resume only for open attendance and stop after checkout/logout/account change/401. Background reporting is best effort; no off-duty route collection is allowed.
+- Show the returned `returnBy` countdown and a departure warning/local notification; null means no active return timer. Display unavailable location with permission/service recovery guidance and explain attendance remains open. Refresh own attendance on resume and at expiry; reconcile 409 through it. The server owns checkout and deadline calculations.
+
+See [MOBILE-LOCATION.md](MOBILE-LOCATION.md) for the complete Flutter handoff and real-device acceptance checklist. Copying this guide does not verify device background operation.
 
 ### POST /api/attendance/check-in and POST /api/attendance/:id/check-out
 
@@ -212,7 +275,7 @@ Server behavior to account for:
 
 Use [MOBILE-REQUESTS.md](MOBILE-REQUESTS.md) for all request bodies, response fields, limits, status transitions, and manager actions. All eight backend types are supported: `leave`, `holiday`, `sick`, `unpaid`, `urgent`, `mission`, `excuse`, and `forgotten-check-out`.
 
-The employee app lists only own requests and the server-authorized managed queue. Manager recommendations leave the overall request pending; final HR decisions and reopening controls belong to the dashboard. There is no single-request GET, edit, pagination, request-type discovery, or leave-balance endpoint.
+The employee app lists only own requests and the server-authorized managed queue. Both lists return pages of 50 requests by default (maximum 100); use the last returned request ID as `before` to fetch the next page, retaining any `status` filter. Manager recommendations leave the overall request pending; final HR decisions and reopening controls belong to the dashboard. There is no single-request GET, edit, request-type discovery, or leave-balance endpoint.
 
 ## 7. In-app notifications
 
@@ -242,7 +305,7 @@ Fields: `id`, `type`, `title`, `message`, `createdAt`, nullable `readAt`, option
 | Type | Audience / route |
 | --- | --- |
 | `request-decided`, `request-reopened`, `manager-reviewed` | Requesting employee; refresh own requests and open matching request |
-| `manager-review-required` | Currently assigned department manager; refresh managed queue and open matching request |
+| `manager-review-required` | Currently assigned direct manager; refresh and page through managed queue, then open matching request in a bottom sheet |
 | `pending-request`, `missing-check-out` | HR/admin alerts; administration remains outside employee app scope |
 
 The employee event history contains the latest 100 decision/reopening/manager-review events combined. Manager review alerts are live and disappear when resolved or access changes. Ordinary employees do not receive missing-check-out notifications from this service; derive their guidance from `/attendance/me`.
@@ -255,7 +318,7 @@ Flutter behavior:
 
 1. Fetch after sign-in, on foreground return, and after request/attendance mutations. Refresh approximately every 30 seconds while active; stop polling in the background and dispose timers on logout.
 2. Show server `unreadCount`, inbox, unread filter, and mark-read actions. Update from the response or refresh after marking read.
-3. Resolve request links from `/requests/me` or `/requests/managed`; no `/requests/:id` GET exists. Refresh the relevant list before navigation and handle a removed/inaccessible item.
+3. Resolve request links from `/requests/me` or `/requests/managed`; no `/requests/:id` GET exists. Refresh and page through the relevant list until the ID is found or the list ends. For a manager review alert, open the current request in a bottom sheet and offer approval/rejection recommendations with a reason only while `managerStage` is `pending`. Handle removed, reassigned, or already-reviewed items without offering stale actions.
 4. Resolve own attendance links from `/attendance/me`. A record outside its 93-record window cannot be assumed retrievable as full attendance detail; show unavailable guidance.
 5. Keep unexpected/unknown notification types readable without exposing privileged actions. HR/admin-linked accounts may return HR alerts; do not route them to employee approval or correction controls.
 
@@ -289,14 +352,14 @@ Do not queue offline attendance: server timestamps reflect submission time and c
 - Use company and saved-record IANA timezone conversion, including daylight saving. Keep request calendar dates as date-only strings rather than accidentally shifting them through UTC.
 - Request camera/foreground location access in context and provide denial/settings recovery. Capture both live evidence inputs for each attendance event. Request attachment pickers are a separate workflow.
 - Keep private image/document previews in app-private transient storage. Delete temporary captures on success/cancel and clean interrupted-flow files on next launch. Fetch private images with bearer headers, never token query parameters; respect no-store responses.
-- Refresh session/profile, attendance, requests, managed queue, and notifications when their screens resume or relevant operations finish. Pause background polling and prevent previous-account responses from populating a new account's state.
+- Refresh session/profile, attendance, requests, managed queue, and notifications when their screens resume or relevant operations finish. Pause background screen polling and prevent previous-account responses from populating a new account's state. Open-attendance location reporting is the background exception; implement it using MOBILE-LOCATION.md.
 - Provide loading, empty, error/retry, and confirmed-success states. Use readable labels and accessible controls; status must not rely only on color.
 
 Production traffic requires HTTPS and normal certificate validation. The phone/emulator must reach the configured backend host; no port, LAN accessibility, or Flutter web proxy should be assumed. Do not choose target platforms, minimum OS versions, or languages silently; these remain BRD decisions.
 
 ## 10. Employee scope and verification
 
-Keep employee management, department/manager assignment, global attendance reports/corrections, final HR decisions, reopening, payroll, audit, and schedule/settings mutations in the dashboard. An employee who is a manager receives only the authorized recommendation workflow. A linked HR/admin profile can use personal employee features without turning this app into an administration client.
+Keep employee management, department/manager assignment, global attendance reports/corrections, final HR request decisions, reopening, payroll, audit, and schedule/settings mutations in the dashboard. An employee who is a manager receives authorized request recommendations and sales team verification. Sales verification counts immediately toward sales performance; request recommendations still await HR. A linked HR/admin profile can use personal employee features without turning this app into an administration client.
 
 Before accepting integration, verify the scenarios in [MOBILE_BRD.md](MOBILE_BRD.md), including real-device capture, permission recovery, timezone differences/overnight workdays, lost-response reconciliation, account isolation, and matching REST records in the HR dashboard. Use isolated test accounts/databases. Mock-only tests do not verify backend compatibility; a documentation update does not prove a live-device pilot has passed.
 
@@ -308,3 +371,126 @@ Before accepting integration, verify the scenarios in [MOBILE_BRD.md](MOBILE_BRD
 - [Mobile request contract](MOBILE-REQUESTS.md), [business scope](MOBILE_BRD.md), and [backend-wide API guide](hr-backend/API.md).
 
 Backend source is for contract inspection, never a mobile runtime dependency. If older general API text conflicts with newer implemented features, verify the relevant controller/DTO/service and update the responsible mobile guide. Keep request field/state details in MOBILE-REQUESTS.md so they have one authoritative home.
+
+## 12. Real estate sales: complete mobile REST contract
+
+### 12.1. Business rules and access
+
+- A closed deal means a **signed sale or lease contract**, confirmed by the project owner. Reservations and unsigned negotiations are not closed deals.
+- HR/admin enables `salesEnabled` in the employee profile. Do not infer access from department names, job titles, or account roles. Existing employees default to disabled; disabling submission preserves their history and performance.
+- Fetch `GET /api/sales/access`: `{ canSubmit, canReview, canSetTargets }`. Only an active linked sales-enabled employee can submit/edit their own activities. Targets are managed by HR/admin in the dashboard, not ordinary employee mobile screens.
+- Current assigned department managers can review their team's activities without receiving employee-directory, HR, or payroll permissions. HR/admin can review across departments. Nobody may verify their own activity, including HR and managers. The activity's returned `canReview` determines whether to offer review controls; the server rechecks it.
+- Supported kinds: `meeting` (completed client meeting), `viewing` (completed property viewing), `closed-deal` (signed sale/lease). Do not register planned meetings as completed activities. Each viewing is one activity, not an additional duplicate meeting entry for the same event.
+- Only `verified` entries count toward performance. `pending` and `returned` entries remain visible but do not count. Activity date controls the reporting month; submission/review timestamps are separate server-generated times. Activity dates must be between employment start and company `today`.
+- Values mean **total signed contract value**, including the total contracted lease consideration for a lease. They are not deposits, company revenue, or commission. Currencies remain separate; no exchange rates or combined score are applied.
+- One activity owner per contract in this release. Deal references are trimmed and case-insensitively unique across all employees/statuses. Shared agent attribution, commissions, pipeline, contract attachments and cancellation accounting are not implemented.
+
+### 12.2. Screens
+
+1. **Sales**: month selector, own verified meetings/viewings, sale/lease counts, contract values by currency, pending/returned counts, and monthly targets/achievement from the API.
+2. **Register activity**: type-specific form below. Pre-fill date using company `today`; date-only values stay date-only.
+3. **History/details**: filter by month, type and status; show client, project/compound, property/unit, purpose/outcome/follow-up or signed contract details, notes, submitted time, review reason/reviewer/time.
+4. **Correct/resubmit**: own pending/returned entries only; use current revision and re-submit for verification. Verified entries require a manager/HR return for correction first.
+5. **Team sales reviews**: available when `canReview`; use the server-scoped list and per-entry `canReview`. Verify pending activities or return pending/verified activities with a reason. Keep this separate from leave-request recommendations: sales verification is final for performance.
+
+Hide registration/edit controls when `canSubmit` is false but allow own historical reads. Managers without personal sales access may still review their team. Never use `/employees` to build a mobile team selector: the authorized sales responses already contain employee names/numbers/departments.
+
+### 12.3. Endpoints
+
+| Method | Path | Response / access |
+| --- | --- | --- |
+| GET | `/api/sales/access` | Capability flags, all authenticated users |
+| GET | `/api/sales/activities/me?month=2026-10` | Own activities; newest activity date/submission order first |
+| GET | `/api/sales/activities?month=2026-10` | HR/admin or current department manager's scoped activities, excluding a manager's own entries |
+| GET | `/api/sales/activities/:id` | Accessible activity with current capability; inaccessible/missing returns 404 |
+| POST | `/api/sales/activities` | HTTP 201 created or same-submission replay |
+| PATCH | `/api/sales/activities/:id` | HTTP 200 corrected own pending/returned activity |
+| PATCH | `/api/sales/activities/:id/review` | HTTP 200 verified/returned activity; authorized reviewer only |
+| GET | `/api/sales/performance/me?month=2026-10` | Own monthly summary array, zero or one row |
+| GET | `/api/sales/performance?month=2026-10` | HR/admin or department manager's scoped summary array |
+
+Activity lists also support `kind`, `status`, `employeeId`, and `department` query filters; all are optional, and filters cannot widen access. Team performance supports only `month`, `employeeId`, `department`. Own performance accepts only `month`. Month is mandatory, valid `YYYY-MM`. No pagination is present: these are monthly lists, not the full archive. Unknown query/body fields are rejected.
+
+Dashboard-only endpoints: `POST /api/sales/targets` and `GET /api/sales/export?month=2026-10` (performance CSV; managers can export only their scoped team). Ordinary mobile employees must not expose target administration or export controls.
+
+### 12.4. Activity payloads
+
+Creation envelope: `{ "id": "client-generated UUID", "activity": { ... } }`. Generate and keep one UUID for the submission before sending. Ownership comes from the session; do not send employee ID, status, revision or review fields.
+
+Client meeting:
+
+```json
+{
+  "kind": "meeting",
+  "activityDate": "2026-10-07",
+  "clientName": "Example buyer",
+  "projectName": "Example compound",
+  "propertyReference": "",
+  "purpose": "Discuss apartment requirements",
+  "outcome": "Requested a property viewing",
+  "followUpDate": "2026-10-09",
+  "notes": "Interested in a three-bedroom unit"
+}
+```
+
+Viewing uses the same fields with `kind: "viewing"` and a non-empty `propertyReference`, such as `Building A / Unit 12`. `followUpDate` may be null/omitted and cannot precede activity date.
+
+Signed deal:
+
+```json
+{
+  "kind": "closed-deal",
+  "activityDate": "2026-10-07",
+  "clientName": "Example buyer",
+  "projectName": "Example compound",
+  "propertyReference": "Building A / Unit 12",
+  "dealReference": "SALE-2026-001",
+  "transactionType": "sale",
+  "value": 2500000.25,
+  "currency": "EGP",
+  "notes": "Sale contract signed"
+}
+```
+
+`transactionType` is `sale` or `lease`. Value is a JSON number, positive, at most 1,000,000,000, with at most two decimal places. Currency is exactly three uppercase letters. Client/property/deal/purpose/outcome text is trimmed, required where shown, max 120 characters. Project and property are optional for meetings; project is optional for other kinds. Optional notes max 1000 characters; omitted project/property/notes become empty strings. Do not send meeting fields on a deal or monetary/deal fields on a meeting/viewing.
+
+Correction envelope: `{ "expectedRevision": 3, "activity": { ...complete replacement payload... } }`. Result becomes pending, increments revision, and retains the previous review for context; earlier changes remain in audit history. Initial submission time is preserved, update time changes.
+
+Review: `{ "expectedRevision": 1, "status": "verified", "reason": "Confirmed the signed contract" }`. Status is `verified` or `returned`; reason is 5–500 trimmed characters. Only pending entries can be verified. Pending or verified entries can be returned; returning a verified entry immediately removes its contribution from live performance. Already returned entries cannot be returned again without correction/resubmission.
+
+### 12.5. Responses and performance
+
+Activity responses contain the kind-specific fields plus `id`, `employeeId`, `employeeName`, `employeeNumber`, current `department`, `submittedAt`, `updatedAt`, integer `revision` (starts at 1), `status`, `canReview`, and `review` (null or `{ status, reason, by, byId, at }`). A pending corrected entry may retain a previous returned review; label it as a previous review, not its current approval.
+
+Summary row fields:
+
+- Employee context: `employeeId`, `employeeName`, `employeeNumber`, current `department`, `active`, `salesEnabled`, `month`.
+- Verified totals: `meetings`, `viewings`, `meetingTotal` (sum of both), `deals`, `sales`, `leases`, and `transactionValues`, e.g. `{ "EGP": 2500000.25, "USD": 12000 }`.
+- Unverified totals: `pending`, `returned`.
+- `target`: null or `{ employeeId, month, meetings, deals, transactionValue, currency, revision, reason, updatedAt, updatedBy }`.
+- `achievement`: `{ meetings, deals, transactionValue }` percentages, rounded to one decimal, allowed to exceed 100. A missing/zero count target or absent monetary target gives null, not zero performance. The meeting target includes both meetings and viewings. Monetary achievement counts only the target currency.
+
+Display the returned totals; do not calculate a conversion rate or a combined performance score. Historical summaries are live: correction, verification, target edits, and employee department changes can affect a report generated later. Exports are snapshots, not frozen monthly approvals. Payroll and attendance do not change from sales activity.
+
+### 12.6. Retry, concurrency and privacy
+
+- A retry of POST with the same UUID/normalized payload returns the existing entry without counting/auditing it again. Reusing an ID for another employee or different payload returns 409. Duplicate contract references also return 409.
+- After an uncertain creation response, GET by the saved submission UUID to reconcile. A genuine 404 allows retry with the **same UUID and payload**. Do not discard the UUID and create a fresh one automatically. If the employee wants to change data, reconcile first, then use PATCH on the existing entry or start a new submission only after confirming it was not saved.
+- PATCH/review requires the exact current revision. On 409, refresh the record before retrying; never silently overwrite someone else's edit or review. A lost PATCH/review response also requires GET reconciliation.
+- 400 means validation failure; 401 means sign in again; 403 means capability/assignment no longer allows the action; 404 means unavailable/not accessible; 409 means duplicate/stale state. Preserve forms on recoverable failures and refresh access after foreground return and 403.
+- Keep client names, property details and contract amounts behind authenticated screens and out of logs/notifications/crash reports. Clear account state on logout. No GPS/background tracking or device permissions are needed for sales forms.
+
+### 12.7. Mobile acceptance cases
+
+| ID | Scenario |
+| --- | --- |
+| SALES-AC-01 | Sales-enabled employee can submit all three kinds; ordinary employees cannot submit; managers without personal sales access can review their authorized team |
+| SALES-AC-02 | Activity appears with the same UUID, values, date and status in mobile and dashboard; server identifies the owner |
+| SALES-AC-03 | Pending/returned entries do not count; verification updates own/team totals and targets; different currencies remain separate |
+| SALES-AC-04 | Outside-department/self review is denied; manager reassignment removes old access; hidden controls do not replace server authorization |
+| SALES-AC-05 | Duplicate contract reference, stale revision and extra fields are rejected; timeout reconciliation does not duplicate an activity |
+| SALES-AC-06 | Corrected pending/returned entry requires re-verification; verified entry needs reviewer return first; reasons/reviewer/history are visible |
+| SALES-AC-07 | Company date bounds, follow-up ordering, unit references, positive money/precision and sale/lease wire values are validated |
+| SALES-AC-08 | Month/type/status filters, loading/empty/retry states, disabled sales access, account switching and foreground refresh work against the real API |
+
+Backend checks: `npm --prefix .\hr-backend run test:e2e`; isolated sales coverage is in `hr-backend/test/sales.e2e-spec.ts`. These checks do not replace Flutter analysis/widget/device tests and mobile-to-dashboard acceptance.

@@ -53,6 +53,7 @@ class SessionNotifier extends StateNotifier<SessionState>
   }
   final AuthRepository _repository;
   int _revision = 0;
+  bool _refreshInFlight = false;
 
   Future<void> restore() async {
     final revision = ++_revision;
@@ -69,14 +70,22 @@ class SessionNotifier extends StateNotifier<SessionState>
 
   Future<void> refresh() async {
     final current = state;
-    if (current is! SessionAuthenticated || current.profileRefresh.isLoading) {
+    if (current is! SessionAuthenticated || _refreshInFlight) {
       return;
     }
     final revision = ++_revision;
-    state = SessionAuthenticated(current.user,
-        profileRefresh: const RequestLoading());
-    final result = await _repository.checkAuthState();
+    _refreshInFlight = true;
+    final Either<Failure, AppUser?> result;
+    try {
+      result = await _repository.checkAuthState();
+    } finally {
+      _refreshInFlight = false;
+    }
     if (!mounted || revision != _revision) return;
+    if (current.profileRefresh.isSuccess &&
+        result.fold((_) => false, (user) => user == current.user)) {
+      return;
+    }
     state = result.fold(
       (failure) => switch (failure) {
         ServerFailure(statusCode: 401) => const SessionUnauthenticated(),

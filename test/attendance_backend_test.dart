@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
 import 'package:hrmobile/src/data/models/attendance_model.dart';
 import 'package:hrmobile/src/services/attendance_service.dart';
+import 'package:hrmobile/src/services/attendance_capture_service.dart';
 import 'package:hrmobile/src/services/auth_service.dart';
 
 class _RealHttpOverrides extends HttpOverrides {}
@@ -35,15 +37,23 @@ void main() {
       final initial =
           (await service.load()).getOrElse((failure) => throw failure);
       expect(initial.records, isEmpty);
-      final photo = image.encodeJpg(image.Image(width: 10, height: 10));
+      final capturedAt = DateTime.now().toUtc();
+      final photo = prepareAttendancePhoto(
+          image.encodeJpg(image.Image(width: 2000, height: 1000)));
+      final portrait = image.Image(width: 2000, height: 1000);
+      portrait.exif.imageIfd['Orientation'] = 6;
+      final departurePhoto = prepareAttendancePhoto(image.encodeJpg(portrait));
       AttendanceCapture capture(
-              {double? latitude, double? accuracy, DateTime? at}) =>
+              {double? latitude,
+              double? accuracy,
+              DateTime? at,
+              bool departure = false}) =>
           AttendanceCapture(
               latitude: latitude ?? initial.policy.latitude,
               longitude: initial.policy.longitude,
               accuracyMeters: accuracy ?? 5,
-              capturedAt: at ?? DateTime.now().toUtc(),
-              photo: photo);
+              capturedAt: at ?? capturedAt,
+              photo: departure ? departurePhoto : photo);
       expect((await service.submit(capture(latitude: 0))).isLeft(), true);
       expect((await service.submit(capture(accuracy: 100))).isLeft(), true);
       expect(
@@ -64,7 +74,8 @@ void main() {
           .getOrElse((failure) => throw failure);
       expect(repeated.id, checkIn.id);
       expect(repeated.checkIn, checkIn.checkIn);
-      final checkOut = (await service.submit(capture(), checkOutId: checkIn.id))
+      final checkOut = (await service.submit(capture(departure: true),
+              checkOutId: checkIn.id))
           .getOrElse((failure) => throw failure);
       expect(checkOut.checkOut, isNotNull);
       final repeatedOut =
@@ -78,10 +89,27 @@ void main() {
       final evidence =
           await client.get<List<dynamic>>('/attendance/${checkIn.id}/evidence');
       expect(evidence.data!.length, 2);
-      final photoResponse = await client.get<List<int>>(
-          '/attendance/${checkIn.id}/photos/check-in',
-          options: Options(responseType: ResponseType.bytes));
-      expect(photoResponse.data, isNotEmpty);
+      for (final entry in evidence.data!.cast<Map<String, dynamic>>()) {
+        expect(
+            DateTime.parse(entry['capturedAt'] as String)
+                .millisecondsSinceEpoch,
+            capturedAt.millisecondsSinceEpoch);
+        expect(entry['latitude'], initial.policy.latitude);
+        expect(entry['longitude'], initial.policy.longitude);
+        expect(entry['accuracyMeters'], 5);
+        final event = entry['event'] as String;
+        final photoResponse = await client.get<List<int>>(
+            '/attendance/${checkIn.id}/photos/$event',
+            options: Options(responseType: ResponseType.bytes));
+        final stored =
+            image.decodeJpg(Uint8List.fromList(photoResponse.data!))!;
+        expect((stored.width, stored.height),
+            event == 'check-in' ? (1280, 640) : (640, 1280));
+        expect(stored.exif.isEmpty, true);
+        expect(stored.numFrames, 1);
+        expect(photoResponse.data!.length,
+            lessThanOrEqualTo(initial.policy.maxPhotoBytes));
+      }
     }, _RealHttpOverrides());
   },
       skip: base.isEmpty

@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
 import 'package:hrmobile/src/data/models/employee_request.dart';
+import 'package:hrmobile/src/utils/failure.dart';
 import 'package:hrmobile/src/data/models/attendance_model.dart';
 import 'package:hrmobile/src/services/auth_service.dart';
 import 'package:hrmobile/src/services/requests_service.dart';
@@ -238,6 +239,93 @@ void main() {
             'status': 'approved',
             'reason': 'Confirmed isolated departure'
           });
+      // AC-15–16: real authorization, recommendations and changed assignments.
+      final managerClient = Dio(BaseOptions(baseUrl: base));
+      final managerAuth = AuthService(client: managerClient)..initialize();
+      addTearDown(() {
+        managerAuth.dispose();
+        managerClient.close(force: true);
+      });
+      final manager = (await managerAuth.login(
+              email: 'mobile-manager@example.test',
+              password: 'Isolated-manager-password-2026'))
+          .getOrElse((f) => throw f);
+      final managerService = RequestsService(client: managerClient);
+      await admin.patch<Map<String, dynamic>>(
+          '/departments/Engineering/manager',
+          data: {'employeeId': manager.employee!.id});
+      for (final status in ['approved', 'rejected']) {
+        final day = status == 'approved' ? 20 : 21;
+        final request = (await service.submit(DateRangeRequest(
+                type: 'mission',
+                from: date(day),
+                to: date(day),
+                reason: 'Manager recommendation test')))
+            .getOrElse((f) => throw f);
+        expect(
+            (await managerService.loadManaged())
+                .getOrElse((f) => throw f)
+                .any((r) => r.id == request.id),
+            true);
+        expect(
+            (await service.review(
+                    request.id, status, 'Cannot review own request'))
+                .fold((f) => (f as ServerFailure).statusCode, (_) => null),
+            403);
+        expect(
+            (await managerService.review(request.id, status, 'bad')).isLeft(),
+            true);
+        final reviewed = (await managerService.review(
+                request.id, status, '  Coverage recommendation  '))
+            .getOrElse((f) => throw f);
+        expect(reviewed.status, 'pending');
+        expect(reviewed.managerStage, status);
+        expect(reviewed.managerReview!.reason, 'Coverage recommendation');
+        expect(reviewed.managerReview!.employeeId, manager.employee!.id);
+        expect(reviewed.salaryDeductionDays, isNull);
+        expect(
+            (await managerService.review(
+                    request.id, status, 'Repeated recommendation'))
+                .fold((f) => (f as ServerFailure).statusCode, (_) => null),
+            409);
+        expect(
+            (await notifications.load()).getOrElse((f) => throw f).items.any(
+                (n) =>
+                    n.requestId == request.id && n.type == 'manager-reviewed'),
+            true);
+      }
+      final own = (await managerService.submit(DateRangeRequest(
+              type: 'mission',
+              from: date(22),
+              to: date(22),
+              reason: 'Manager own request')))
+          .getOrElse((f) => throw f);
+      expect(
+          (await managerService.loadManaged())
+              .getOrElse((f) => throw f)
+              .any((r) => r.id == own.id),
+          false);
+      expect(
+          (await managerService.review(
+                  own.id, 'approved', 'Cannot review self'))
+              .fold((f) => (f as ServerFailure).statusCode, (_) => null),
+          403);
+      final stale = (await service.submit(DateRangeRequest(
+              type: 'mission',
+              from: date(23),
+              to: date(23),
+              reason: 'Assignment change test')))
+          .getOrElse((f) => throw f);
+      await admin.patch<Map<String, dynamic>>(
+          '/departments/Engineering/manager',
+          data: {'employeeId': null});
+      expect(
+          (await managerService.review(
+                  stale.id, 'approved', 'Former manager recommendation'))
+              .fold((f) => (f as ServerFailure).statusCode, (_) => null),
+          403);
+      expect((await managerService.loadManaged()).getOrElse((f) => throw f),
+          isEmpty);
       final closed = (await attendanceService.load())
           .getOrElse((f) => throw f)
           .records

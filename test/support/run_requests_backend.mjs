@@ -26,9 +26,14 @@ try {
     email: 'mobile-employee@example.test', department: 'Engineering', jobTitle: 'Test fixture',
     startDate: '2026-01-01', scheduleId: schedule.id, active: true, role: 'employee',
     password: 'Isolated-employee-password-2026' }, admin.token);
-  const command = `flutter test test/requests_backend_test.dart --dart-define=REQUESTS_TEST_API=${base}`;
+  await api('/employees', 'POST', { nationalId: '00987654321012', name: 'Isolated Manager',
+    email: 'mobile-manager@example.test', department: 'Engineering', jobTitle: 'Test fixture',
+    startDate: '2026-01-01', scheduleId: schedule.id, active: true, role: 'employee',
+    password: 'Isolated-manager-password-2026' }, admin.token);
+  const testFile = process.argv[3] || 'test/requests_backend_test.dart';
+  const command = `flutter test ${testFile} --dart-define=REQUESTS_TEST_API=${base}`;
   const child = process.platform === 'win32'
     ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', command], { stdio: 'inherit' })
-    : spawn('flutter', ['test', 'test/requests_backend_test.dart', `--dart-define=REQUESTS_TEST_API=${base}`], { stdio: 'inherit' });
+    : spawn('flutter', ['test', testFile, `--dart-define=REQUESTS_TEST_API=${base}`], { stdio: 'inherit' });
   process.exitCode = await new Promise((resolveExit, reject) => { child.on('exit', resolveExit); child.on('error', reject); });
 } finally { await app.close(); }

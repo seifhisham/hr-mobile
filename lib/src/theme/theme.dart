@@ -372,15 +372,17 @@ ThemeData buildLightTheme({required String primaryColorHex}) {
     seedColor: seed,
     brightness: Brightness.light,
   ).copyWith(
-      primary: const Color(0xFF183C35),
+      primary: const Color(0xFF2457A7),
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFDFEAE2),
-      onPrimaryContainer: const Color(0xFF183C35),
-      secondaryContainer: const Color(0xFFDFEAE2),
-      onSecondaryContainer: const Color(0xFF183C35),
-      surface: const Color(0xFFF4F6F3),
+      primaryContainer: const Color(0xFFDBEAFE),
+      onPrimaryContainer: const Color(0xFF17263D),
+      secondaryContainer: const Color(0xFFDBEAFE),
+      onSecondaryContainer: const Color(0xFF17263D),
+      surface: const Color(0xFFF7F9FC),
       surfaceContainerLow: Colors.white,
-      outlineVariant: const Color(0xFFE2E7E1));
+      inverseSurface: const Color(0xFF17263D),
+      onInverseSurface: const Color(0xFFF7F9FC),
+      outlineVariant: const Color(0xFFDCE4EF));
   return _buildTheme(colorScheme, AppPalettes.light);
 }
 
@@ -390,6 +392,11 @@ ThemeData buildDarkTheme({required String primaryColorHex}) {
   final colorScheme = ColorScheme.fromSeed(
     seedColor: seed,
     brightness: Brightness.dark,
+  ).copyWith(
+    surface: const Color(0xFF0F1724),
+    surfaceContainerLow: const Color(0xFF17263D),
+    inverseSurface: const Color(0xFF213451),
+    onInverseSurface: const Color(0xFFE8EFFA),
   );
   return _buildTheme(colorScheme, AppPalettes.dark);
 }
