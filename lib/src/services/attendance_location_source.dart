@@ -38,6 +38,10 @@ class AttendanceLocationSource {
     }
   }
 
+  Future<bool> hasBackgroundAccess() async =>
+      supported &&
+      await Geolocator.checkPermission() == LocationPermission.always;
+
   Stream<AttendanceLocationFix> positions(AttendanceTrackingPolicy policy) {
     final LocationSettings settings = defaultTargetPlatform ==
             TargetPlatform.android

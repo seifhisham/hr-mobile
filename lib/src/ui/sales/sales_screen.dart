@@ -28,7 +28,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     final accessState = ref.watch(salesAccessProvider);
     final access = accessValue(accessState);
     final state = ref.watch(salesListProvider(team));
-    final controller = ref.read(salesListProvider(team).notifier);
+    final controller = ref.watch(salesListProvider(team).notifier);
     final dashboard = state.dashboard;
     final allowed =
         user != null && (team ? access.canReview : user.employee != null);
@@ -68,12 +68,12 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                                 title: 'sales.title'.tr(),
                                 subtitle: 'sales.subtitle'.tr(),
                                 icon: Icons.home_work_outlined),
-                          SalesNotice(
-                              text: (team
-                                      ? 'sales.team_hint'
-                                      : 'sales.counting_hint')
-                                  .tr()),
-                          SizedBox(height: AppSpacing.md),
+                          if (team) ...[
+                            SalesNotice(
+                                text: 'sales.team_hint'.tr(),
+                                icon: Icons.fact_check_outlined),
+                            SizedBox(height: AppSpacing.md),
+                          ],
                           if (accessState.isLoading)
                             const Center(child: CircularProgressIndicator()),
                           if (accessState
@@ -96,6 +96,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                             if (!team && access.canSubmit) ...[
                               AppButton(
                                   label: 'sales.register'.tr(),
+                                  prefixIcon: const ExcludeSemantics(
+                                      child: Icon(Icons.add_circle_outline)),
                                   onPressed: () =>
                                       context.pushNamed('newSalesActivity')),
                               SizedBox(height: AppSpacing.sm),
@@ -110,6 +112,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                             if (!team && access.canReview)
                               AppButton(
                                   label: 'sales.team_title'.tr(),
+                                  prefixIcon: const ExcludeSemantics(
+                                      child: Icon(Icons.groups_outlined)),
                                   variant: ButtonVariant.outline,
                                   onPressed: () =>
                                       context.pushNamed('teamSales')),
@@ -119,12 +123,15 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                  Text('sales.reporting_month'.tr(),
-                                      style: context.textTheme.labelLarge),
+                                  SalesSectionHeading(
+                                      title: 'sales.reporting_month'.tr(),
+                                      icon: Icons.calendar_month_outlined),
+                                  SizedBox(height: AppSpacing.sm),
                                   Row(children: [
                                     IconButton(
                                         tooltip: 'sales.previous_month'.tr(),
-                                        icon: const Icon(Icons.arrow_back),
+                                        icon: const Icon(
+                                            Icons.arrow_back_ios_new),
                                         onPressed: () =>
                                             _moveMonth(controller, state, -1)),
                                     Expanded(
@@ -137,7 +144,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                                                 context, controller, state))),
                                     IconButton(
                                         tooltip: 'sales.next_month'.tr(),
-                                        icon: const Icon(Icons.arrow_forward),
+                                        icon:
+                                            const Icon(Icons.arrow_forward_ios),
                                         onPressed: () =>
                                             _moveMonth(controller, state, 1)),
                                   ]),
@@ -174,8 +182,12 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                             if (dashboard != null && rows.isEmpty)
                               AppCard(child: Text('sales.no_summary'.tr())),
                             SizedBox(height: AppSpacing.lg),
-                            Text('sales.activity_history'.tr(),
-                                style: context.textTheme.titleLarge),
+                            SalesSectionHeading(
+                                title: 'sales.activity_history'.tr(),
+                                icon: Icons.history_rounded),
+                            SizedBox(height: AppSpacing.xs),
+                            Text('sales.history_hint'.tr(),
+                                style: context.textTheme.bodyMedium),
                             SizedBox(height: AppSpacing.md),
                             AppDropdown<String>(
                                 label: 'sales.type'.tr(),

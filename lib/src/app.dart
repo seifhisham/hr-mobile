@@ -36,7 +36,19 @@ class App extends ConsumerWidget {
         current = NotificationRefresh(child: current);
         current = SalesRefresh(child: current);
         current = AttendanceMonitoring(child: current);
-        return current;
+        final brightness = Theme.of(context).brightness;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            systemStatusBarContrastEnforced: false,
+            statusBarBrightness: brightness,
+            statusBarIconBrightness: brightness == Brightness.dark
+                ? Brightness.light
+                : Brightness.dark,
+          ),
+          child: ColoredBox(
+              color: Theme.of(context).colorScheme.surface, child: current),
+        );
       },
     );
   }

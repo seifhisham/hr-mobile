@@ -81,6 +81,7 @@ void main() {
       bool salesSubmit = false,
       bool salesReview = false,
       List<Map<String, dynamic>> salesActivities = const [],
+      Map<String, dynamic>? salesPerformance,
       Locale locale = const Locale('en'),
       List<Map<String, dynamic>> requests = const [],
       List<Map<String, dynamic>> notifications = const [],
@@ -125,7 +126,8 @@ void main() {
         });
       }
       if (request.path.startsWith('/sales/performance')) {
-        return jsonResponse(salesItems.isEmpty ? [] : [performanceJson()]);
+        return jsonResponse(
+            salesItems.isEmpty ? [] : [salesPerformance ?? performanceJson()]);
       }
       if (request.path == '/sales/activities' && request.method == 'POST') {
         final entry = {
@@ -812,6 +814,115 @@ void main() {
     });
   });
 
+  testWidgets(
+      'Sales separates verified results and review work and labels target progress',
+      (tester) async {
+    final performance = {
+      ...performanceJson(),
+      'target': {
+        'employeeId': 'employee-a',
+        'month': '2026-10',
+        'meetings': 6,
+        'deals': 2,
+        'transactionValue': 24000,
+        'currency': 'USD',
+        'revision': 1,
+        'reason': 'Monthly goals',
+        'updatedBy': 'HR',
+        'updatedAt': '2026-10-01T08:00:00Z',
+      },
+      'achievement': {
+        'meetings': 50.0,
+        'deals': 50.0,
+        'transactionValue': 50.0
+      },
+    };
+    final container = await pumpApp(tester,
+        savedSession: true,
+        salesSubmit: true,
+        salesActivities: [salesJson()],
+        salesPerformance: performance);
+    container.read(appRouterProvider).goNamed('sales');
+    await tester.pumpAndSettle();
+    final verifiedCard = find
+        .ancestor(
+            of: find.text('Verified results'), matching: find.byType(AppCard))
+        .first;
+    expect(
+        find.descendant(
+            of: verifiedCard, matching: find.text('Client meetings')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: verifiedCard, matching: find.text('Property viewings')),
+        findsOneWidget);
+    expect(find.descendant(of: verifiedCard, matching: find.text('Sales')),
+        findsOneWidget);
+    expect(find.descendant(of: verifiedCard, matching: find.text('Leases')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: verifiedCard, matching: find.text('Pending verification')),
+        findsNothing);
+    final reviewCard = find
+        .ancestor(
+            of: find.text('Not counted yet'), matching: find.byType(AppCard))
+        .first;
+    expect(
+        find.descendant(
+            of: reviewCard, matching: find.text('Pending verification')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: reviewCard, matching: find.text('Returned for correction')),
+        findsOneWidget);
+    expect(find.text('Verified: 3 / Target: 6'), findsOneWidget);
+    expect(find.text('Verified: USD 12,000.00 / Target: USD 24,000.00'),
+        findsOneWidget);
+    expect(find.text('Counts USD contracts only.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets(
+        'Sales cards support ${locale.languageCode} dark mode and large text',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 740);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final container = await pumpApp(tester,
+          savedSession: true,
+          locale: locale,
+          salesSubmit: true,
+          salesReview: true,
+          salesActivities: [
+            salesJson(),
+            salesJson(id: 'verified-a', status: 'verified')
+          ]);
+      container.read(appRouterProvider).goNamed('sales');
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('sales.target_not_set'.tr()), findsOneWidget);
+      expect(find.text('sales.unavailable'.tr()), findsNothing);
+      final scroll = find
+          .descendant(
+              of: find.byType(RefreshIndicator),
+              matching: find.byType(Scrollable))
+          .first;
+      for (var step = 0; step < 14; step++) {
+        await tester.drag(scroll, const Offset(0, -450));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+      expect(find.text('sales.statuses.verified'.tr()), findsWidgets);
+    });
+  }
+
   testWidgets('redesigned workspace navigation and visual previews',
       (tester) async {
     const previews = bool.fromEnvironment('DESIGN_PREVIEWS');
@@ -970,6 +1081,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.element(dock), same(element));
       expect(tester.getTopLeft(dock), position);
+      expect(tester.getRect(find.byType(Scaffold).last).bottom,
+          closeTo(tester.getRect(find.byType(Scaffold).first).bottom, 1),
+          reason: 'The page canvas continues behind the floating dock');
       expect(tester.takeException(), isNull);
     }
   });

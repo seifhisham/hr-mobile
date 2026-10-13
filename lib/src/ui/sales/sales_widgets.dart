@@ -42,21 +42,73 @@ class SalesStatus extends StatelessWidget {
   const SalesStatus({super.key, required this.status});
   final String status;
   @override
-  Widget build(BuildContext context) => Wrap(
+  Widget build(BuildContext context) {
+    final (background, foreground, icon) = switch (status) {
+      'verified' => (
+          context.appColors.successContainer ?? context.colors.primaryContainer,
+          context.appColors.onSuccessContainer ??
+              context.colors.onPrimaryContainer,
+          Icons.check_circle_outline
+        ),
+      'returned' => (
+          context.colors.errorContainer,
+          context.colors.onErrorContainer,
+          Icons.edit_note_rounded
+        ),
+      _ => (
+          context.colors.secondaryContainer,
+          context.colors.onSecondaryContainer,
+          Icons.schedule_outlined
+        ),
+    };
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(color: background, borderRadius: AppBorders.lg),
+      child: Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: AppSpacing.xs,
           children: [
-            Icon(
-                switch (status) {
-                  'verified' => Icons.check_circle_outline,
-                  'returned' => Icons.edit_note_rounded,
-                  _ => Icons.schedule
-                },
-                color: status == 'verified'
-                    ? context.colors.primary
-                    : context.colors.onSurfaceVariant),
-            Text(salesStatusLabel(status), style: context.textTheme.labelLarge),
-          ]);
+            ExcludeSemantics(
+                child: Icon(icon, color: foreground, size: AppSpacing.ml)),
+            Text(salesStatusLabel(status),
+                style:
+                    context.textTheme.labelLarge?.copyWith(color: foreground)),
+          ]),
+    );
+  }
+}
+
+class SalesSectionHeading extends StatelessWidget {
+  const SalesSectionHeading(
+      {super.key, required this.title, required this.icon});
+  final String title;
+  final IconData icon;
+  @override
+  Widget build(BuildContext context) => Semantics(
+      header: true,
+      child: Row(children: [
+        ExcludeSemantics(child: Icon(icon, color: context.colors.primary)),
+        SizedBox(width: AppSpacing.sm),
+        Expanded(
+            child: Text(title,
+                style: context.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600))),
+      ]));
+}
+
+class SalesIconTile extends StatelessWidget {
+  const SalesIconTile({super.key, required this.icon});
+  final IconData icon;
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+          child: Container(
+        padding: EdgeInsets.all(AppSpacing.ms),
+        decoration: BoxDecoration(
+            color: context.colors.primaryContainer,
+            borderRadius: AppBorders.lg),
+        child: Icon(icon, color: context.colors.onPrimaryContainer),
+      ));
 }
 
 class SalesMutationFeedback extends ConsumerWidget {
@@ -109,99 +161,215 @@ class SalesPerformanceCard extends StatelessWidget {
   const SalesPerformanceCard({super.key, required this.row, this.team = false});
   final SalesPerformance row;
   final bool team;
+
   @override
-  Widget build(BuildContext context) => AppCard(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(team ? row.employeeName : 'sales.verified_work'.tr(),
-            style: context.textTheme.titleLarge),
-        if (team) Text('${row.employeeNumber} · ${row.department}'),
-        SizedBox(height: AppSpacing.md),
-        LayoutBuilder(builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 500 &&
-                  MediaQuery.textScalerOf(context).scale(1) < 1.5
-              ? 3
-              : 1;
-          return Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              children: [
-                for (final metric in [
-                  (
-                    'sales.meeting_total',
-                    row.meetingTotal,
-                    Icons.groups_outlined
-                  ),
-                  ('sales.deals', row.deals, Icons.handshake_outlined),
-                  ('sales.awaiting_review', row.pending, Icons.schedule),
-                ])
-                  SizedBox(
-                      width: (constraints.maxWidth -
-                              (columns - 1) * AppSpacing.md) /
-                          columns,
-                      child: Container(
-                          padding: EdgeInsets.all(AppSpacing.md),
-                          decoration: BoxDecoration(
-                              color: context.colors.surfaceContainerLow,
-                              borderRadius: AppBorders.lg),
-                          child: Row(children: [
-                            Icon(metric.$3, color: context.colors.primary),
-                            SizedBox(width: AppSpacing.md),
-                            Expanded(child: Text(metric.$1.tr())),
-                            Text('${metric.$2}',
-                                style: context.textTheme.headlineSmall)
-                          ]))),
-              ]);
-        }),
-        SizedBox(height: AppSpacing.md),
-        Text('sales.breakdown'.tr(namedArgs: {
-          'meetings': '${row.meetings}',
-          'viewings': '${row.viewings}',
-          'sales': '${row.sales}',
-          'leases': '${row.leases}'
-        })),
-        SizedBox(height: AppSpacing.sm),
-        Text(
-            'sales.returned_count'.tr(namedArgs: {'count': '${row.returned}'})),
-        SizedBox(height: AppSpacing.lg),
-        Text('sales.contract_totals'.tr(),
-            style: context.textTheme.titleMedium),
-        if (row.transactionValues.isEmpty)
-          Text('sales.no_verified_contracts'.tr()),
-        for (final entry in row.transactionValues.entries)
-          Padding(
-              padding: EdgeInsets.only(top: AppSpacing.sm),
-              child: Text(salesMoney(entry.value, entry.key),
-                  style: context.textTheme.titleLarge)),
-        SizedBox(height: AppSpacing.lg),
-        Text('sales.monthly_targets'.tr(),
-            style: context.textTheme.titleMedium),
-        Text('sales.targets_hint'.tr(), style: context.textTheme.bodySmall),
-        SizedBox(height: AppSpacing.sm),
-        _target(context, 'sales.meeting_total', row.target?.meetings,
-            row.achievement['meetings']),
-        _target(context, 'sales.deals', row.target?.deals,
-            row.achievement['deals']),
-        _target(context, 'sales.contract_value', row.target?.transactionValue,
-            row.achievement['transactionValue'],
-            currency: row.target?.currency),
-      ]));
-  Widget _target(
-          BuildContext context, String label, num? target, num? percentage,
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (team) ...[
+            SalesSectionHeading(
+                title: row.employeeName, icon: Icons.badge_outlined),
+            Text('${row.employeeNumber} · ${row.department}'),
+            SizedBox(height: AppSpacing.md),
+          ],
+          AppCard(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                SalesSectionHeading(
+                    title: 'sales.verified_results'.tr(),
+                    icon: Icons.verified_outlined),
+                SizedBox(height: AppSpacing.xs),
+                Text('sales.verified_results_hint'.tr(),
+                    style: context.textTheme.bodyMedium),
+                SizedBox(height: AppSpacing.md),
+                _metricGroup(context, 'sales.meeting_total', row.meetingTotal,
+                    Icons.groups_outlined, [
+                  ('sales.meetings', row.meetings, Icons.groups_outlined),
+                  ('sales.viewings', row.viewings, Icons.home_work_outlined),
+                ]),
+                SizedBox(height: AppSpacing.md),
+                _metricGroup(context, 'sales.deals', row.deals,
+                    Icons.handshake_outlined, [
+                  ('sales.sales_count', row.sales, Icons.sell_outlined),
+                  ('sales.leases_count', row.leases, Icons.key_outlined),
+                ]),
+                SizedBox(height: AppSpacing.lg),
+                SalesSectionHeading(
+                    title: 'sales.contract_totals'.tr(),
+                    icon: Icons.payments_outlined),
+                SizedBox(height: AppSpacing.sm),
+                if (row.transactionValues.isEmpty)
+                  Text('sales.no_verified_contracts'.tr()),
+                for (final entry in row.transactionValues.entries)
+                  Padding(
+                      padding: EdgeInsets.only(top: AppSpacing.sm),
+                      child: Text(salesMoney(entry.value, entry.key),
+                          style: context.textTheme.titleLarge)),
+              ])),
+          SizedBox(height: AppSpacing.md),
+          AppCard(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                SalesSectionHeading(
+                    title: 'sales.not_counted'.tr(),
+                    icon: Icons.pending_actions_outlined),
+                SizedBox(height: AppSpacing.md),
+                _reviewRow(context, 'pending', row.pending,
+                    team ? 'sales.pending_team_hint' : 'sales.pending_hint'),
+                SizedBox(height: AppSpacing.md),
+                const AppDivider(),
+                SizedBox(height: AppSpacing.md),
+                _reviewRow(
+                    context, 'returned', row.returned, 'sales.returned_hint'),
+              ])),
+          SizedBox(height: AppSpacing.md),
+          AppCard(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                SalesSectionHeading(
+                    title: 'sales.monthly_targets'.tr(),
+                    icon: Icons.flag_outlined),
+                SizedBox(height: AppSpacing.xs),
+                Text('sales.targets_short_hint'.tr(),
+                    style: context.textTheme.bodyMedium),
+                SizedBox(height: AppSpacing.md),
+                if (row.target == null)
+                  Text('sales.target_not_set'.tr())
+                else ...[
+                  _target(
+                      context,
+                      'sales.meeting_total',
+                      Icons.groups_outlined,
+                      row.meetingTotal,
+                      row.target?.meetings,
+                      row.achievement['meetings']),
+                  const AppDivider(),
+                  _target(context, 'sales.deals', Icons.handshake_outlined,
+                      row.deals, row.target?.deals, row.achievement['deals']),
+                  const AppDivider(),
+                  _target(
+                      context,
+                      'sales.contract_value',
+                      Icons.payments_outlined,
+                      row.target == null
+                          ? 0
+                          : row.transactionValues[row.target!.currency] ?? 0,
+                      row.target?.transactionValue,
+                      row.achievement['transactionValue'],
+                      currency: row.target?.currency),
+                ],
+              ])),
+        ],
+      );
+
+  Widget _metricGroup(BuildContext context, String label, int total,
+          IconData icon, List<(String, int, IconData)> details) =>
+      Container(
+        padding: EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+            color: context.colors.surfaceContainerHighest,
+            borderRadius: AppBorders.lg),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            SalesIconTile(icon: icon),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+                child: Text(label.tr(), style: context.textTheme.titleMedium)),
+            SizedBox(width: AppSpacing.sm),
+            Text('$total',
+                style: context.textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+          ]),
+          SizedBox(height: AppSpacing.md),
+          for (final detail in details)
+            Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                child: Row(children: [
+                  ExcludeSemantics(
+                      child: Icon(detail.$3,
+                          size: AppSpacing.ml,
+                          color: context.colors.onSurfaceVariant)),
+                  SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                      child: Text(detail.$1.tr(),
+                          style: context.textTheme.bodyMedium)),
+                  SizedBox(width: AppSpacing.sm),
+                  Text('${detail.$2}', style: context.textTheme.titleMedium),
+                ])),
+        ]),
+      );
+
+  Widget _reviewRow(
+          BuildContext context, String status, int count, String hint) =>
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                SalesStatus(status: status),
+                SizedBox(height: AppSpacing.sm),
+                Text(hint.tr(), style: context.textTheme.bodyMedium),
+              ])),
+          SizedBox(width: AppSpacing.md),
+          Text('$count',
+              style: context.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+        ],
+      );
+
+  Widget _target(BuildContext context, String label, IconData icon, num actual,
+          num? target, num? percentage,
           {String? currency}) =>
       Padding(
-          padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(label.tr(), style: context.textTheme.labelLarge),
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SalesSectionHeading(title: label.tr(), icon: icon),
+          SizedBox(height: AppSpacing.sm),
+          if (target == null)
+            Text('sales.target_not_set'.tr(),
+                style: context.textTheme.bodyMedium)
+          else ...[
             Text(
-                '${target == null ? 'sales.not_set'.tr() : currency == null ? '$target' : salesMoney(target, currency)} · '
-                '${percentage == null ? 'sales.unavailable'.tr() : '${percentage.toStringAsFixed(1)}%'}'),
-            if (percentage != null) ...[
+                'sales.target_progress'.tr(namedArgs: {
+                  'actual': currency == null
+                      ? '$actual'
+                      : salesMoney(actual, currency),
+                  'target': currency == null
+                      ? '$target'
+                      : salesMoney(target, currency),
+                }),
+                style: context.textTheme.bodyMedium),
+            if (currency != null) ...[
               SizedBox(height: AppSpacing.xs),
-              LinearProgressIndicator(value: (percentage / 100).clamp(0, 1)),
+              Text(
+                  'sales.target_currency_hint'
+                      .tr(namedArgs: {'currency': currency}),
+                  style: context.textTheme.bodySmall),
             ],
-          ]));
+            SizedBox(height: AppSpacing.sm),
+            if (percentage != null) ...[
+              Text(
+                  'sales.target_achieved'.tr(
+                      namedArgs: {'percent': percentage.toStringAsFixed(1)}),
+                  style: context.textTheme.labelLarge
+                      ?.copyWith(color: context.colors.primary)),
+              SizedBox(height: AppSpacing.sm),
+              LinearProgressIndicator(
+                  value: (percentage / 100).clamp(0, 1),
+                  semanticsLabel: label.tr(),
+                  semanticsValue: percentage.clamp(0, 100).toString()),
+            ] else
+              Text('sales.unavailable'.tr()),
+          ],
+        ]),
+      );
 }
 
 class SalesActivityCard extends StatelessWidget {
@@ -215,28 +383,51 @@ class SalesActivityCard extends StatelessWidget {
       onTap: onTap,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(salesKindIcon(item.kind), color: context.colors.primary),
+          SalesIconTile(icon: salesKindIcon(item.kind)),
           SizedBox(width: AppSpacing.sm),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(salesKindLabel(item.kind),
-                    style: context.textTheme.titleMedium),
-                Text(item.clientName),
+                    style: context.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                SizedBox(height: AppSpacing.xs),
+                Text(item.clientName, style: context.textTheme.bodyMedium),
               ])),
           Icon(Directionality.of(context) == TextDirection.rtl
               ? Icons.chevron_left
               : Icons.chevron_right),
         ]),
         SizedBox(height: AppSpacing.sm),
-        SalesStatus(status: item.status),
-        Text(item.activityDate, style: context.textTheme.bodySmall),
-        if (team) Text('${item.employeeName} · ${item.department}'),
-        if (item.propertyReference.isNotEmpty) Text(item.propertyReference),
+        Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SalesStatus(status: item.status)),
+        SizedBox(height: AppSpacing.sm),
+        _metadata(context, Icons.calendar_today_outlined, item.activityDate),
+        if (team)
+          _metadata(context, Icons.person_outline,
+              '${item.employeeName} · ${item.department}'),
+        if (item.propertyReference.isNotEmpty)
+          _metadata(
+              context, Icons.location_on_outlined, item.propertyReference),
         if (item.value != null && item.currency != null)
-          Text(salesMoney(item.value!, item.currency!)),
+          _metadata(context, Icons.payments_outlined,
+              salesMoney(item.value!, item.currency!)),
       ]));
+  Widget _metadata(BuildContext context, IconData icon, String text) => Padding(
+        padding: EdgeInsets.only(top: AppSpacing.sm),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ExcludeSemantics(
+              child: Icon(icon,
+                  size: AppSpacing.ml, color: context.colors.onSurfaceVariant)),
+          SizedBox(width: AppSpacing.sm),
+          Expanded(
+              child: Text(text,
+                  style: context.textTheme.bodyMedium
+                      ?.copyWith(color: context.colors.onSurfaceVariant))),
+        ]),
+      );
 }
 
 class SalesDetailFields extends StatelessWidget {

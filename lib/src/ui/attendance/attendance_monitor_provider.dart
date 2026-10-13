@@ -4,9 +4,12 @@ import '../../data/models/attendance_location.dart';
 import '../../data/models/attendance_model.dart';
 import '../../services/attendance_location_source.dart';
 import '../../services/attendance_service.dart';
+import '../../services/attendance_location_warning.dart';
 import '../auth/providers/session_provider.dart';
 import 'attendance_provider.dart';
 
+final attendanceLocationWarningProvider =
+    Provider((ref) => AttendanceLocationWarning.instance);
 final attendanceLocationSourceProvider =
     Provider((ref) => AttendanceLocationSource.instance);
 final attendanceLocationServiceProvider =

@@ -146,47 +146,86 @@ class _AttendanceCameraDialogState extends ConsumerState<AttendanceCameraDialog>
     });
     final controller = _controller;
     final ready = controller?.value.isInitialized ?? false;
+    final landscape =
+        MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final preview = Center(
+        child: ready
+            ? ClipRRect(
+                borderRadius: AppBorders.xl,
+                clipBehavior: Clip.antiAlias,
+                child: CameraPreview(controller!))
+            : const AppCircularProgress());
+    final captureButton = AppButton(
+        label: 'attendance.take_photo'.tr(),
+        height: ButtonSize.large,
+        prefixIcon:
+            Icon(Icons.camera_alt_outlined, color: context.colors.onPrimary),
+        isLoading: _capture.isLoading,
+        onPressed: ready ? _takePhoto : null);
     return PopScope<Object?>(
         onPopInvokedWithResult: (didPop, _) {
           if (didPop) _closeCamera();
         },
         child: Dialog(
           shape: const RoundedRectangleBorder(borderRadius: AppBorders.xl),
-          insetPadding: EdgeInsets.all(AppSpacing.lg),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                maxWidth: 480.w,
-                maxHeight: MediaQuery.sizeOf(context).height * 0.8),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('attendance.camera_title'.tr(),
-                        style: context.textTheme.titleLarge),
-                    SizedBox(height: AppSpacing.xs),
-                    Text('attendance.camera_hint'.tr(),
-                        style: context.textTheme.bodySmall),
-                    SizedBox(height: AppSpacing.md),
-                    SizedBox(
-                        height: MediaQuery.sizeOf(context).height * 0.4,
-                        child: ClipRRect(
-                            borderRadius: AppBorders.card,
-                            child: Center(
-                                child: ready
-                                    ? CameraPreview(controller!)
-                                    : const AppCircularProgress()))),
-                    SizedBox(height: AppSpacing.md),
-                    AppButton(
-                        label: 'attendance.take_photo'.tr(),
-                        prefixIcon: Icon(Icons.camera_alt_outlined,
-                            color: context.colors.onPrimary),
-                        isLoading: _capture.isLoading,
-                        onPressed: ready ? _takePhoto : null),
-                    AppTextButton(
-                        label: 'requests.cancel'.tr(), onPressed: _finish),
-                  ]),
+          insetPadding: EdgeInsets.all(AppSpacing.md),
+          child: SizedBox(
+            width: 600.w,
+            height: MediaQuery.sizeOf(context).height * 0.9,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                    padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md,
+                        AppSpacing.md, AppSpacing.sm),
+                    child: Row(textDirection: TextDirection.ltr, children: [
+                      Expanded(
+                          child: Semantics(
+                              header: true,
+                              child: Text('attendance.camera_title'.tr(),
+                                  style: context.textTheme.titleLarge))),
+                      SizedBox(width: AppSpacing.sm),
+                      AppIconButton(
+                          key: const ValueKey('cancel-attendance-camera'),
+                          icon: Icons.close_rounded,
+                          tooltip: 'requests.cancel'.tr(),
+                          variant: ButtonVariant.secondary,
+                          onPressed: _finish),
+                    ])),
+                if (landscape)
+                  Expanded(
+                      child: Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(child: preview),
+                                SizedBox(width: AppSpacing.md),
+                                Expanded(
+                                    child: Align(
+                                        alignment:
+                                            AlignmentDirectional.topStart,
+                                        child: Text(
+                                            'attendance.camera_hint'.tr(),
+                                            style:
+                                                context.textTheme.bodySmall))),
+                              ])))
+                else ...[
+                  Padding(
+                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      child: Text('attendance.camera_hint'.tr(),
+                          style: context.textTheme.bodyMedium)),
+                  SizedBox(height: AppSpacing.sm),
+                  Expanded(
+                      child: Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                          child: preview)),
+                ],
+                Padding(
+                    padding: EdgeInsets.all(AppSpacing.md),
+                    child: captureButton),
+              ],
             ),
           ),
         ));

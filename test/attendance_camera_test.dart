@@ -13,7 +13,6 @@ import 'package:hrmobile/src/data/models/user_model.dart';
 import 'package:hrmobile/src/data/repositories/auth_repository.dart';
 import 'package:hrmobile/src/shared/widgets/attendance_camera_dialog.dart';
 import 'package:hrmobile/src/shared/widgets/ui/app/actions/app_button.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/actions/app_text_button.dart';
 import 'package:hrmobile/src/theme/theme.dart';
 import 'package:hrmobile/src/ui/auth/providers/session_provider.dart';
 import 'package:hrmobile/src/utils/utils.dart';
@@ -168,15 +167,12 @@ void main() {
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(CameraPreview), findsOneWidget);
     expect(
-        tester
-            .getSize(find.descendant(
-                of: find.byType(Dialog),
-                matching: find.byType(SingleChildScrollView)))
-            .height,
-        lessThan(
-            tester.view.physicalSize.height / tester.view.devicePixelRatio));
+        find.descendant(
+            of: find.byType(Dialog), matching: find.byType(Scrollable)),
+        findsNothing);
+    expect(tester.getSize(find.byType(CameraPreview)).height, greaterThan(0));
     expect(camera.enableAudio, false);
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(find.byType(AppButton).first);
     await tester.pumpAndSettle();
     expect(returned, same(camera.photo));
     expect(camera.shots, 1);
@@ -186,7 +182,7 @@ void main() {
   });
   testWidgets('cancel releases camera without taking a photo', (tester) async {
     await open(tester);
-    await tester.tap(find.byType(AppTextButton));
+    await tester.tap(find.byKey(const ValueKey('cancel-attendance-camera')));
     await tester.pumpAndSettle();
     expect(returned, isNull);
     expect(camera.shots, 0);
@@ -197,11 +193,12 @@ void main() {
       (tester) async {
     camera.photoWait = Completer<XFile>();
     await open(tester);
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(find.byType(AppButton).first);
     await tester.pump();
-    expect(tester.widget<AppButton>(find.byType(AppButton)).isLoading, true);
-    await tester.tap(find.byType(AppButton));
-    await tester.tap(find.byType(AppTextButton));
+    expect(
+        tester.widget<AppButton>(find.byType(AppButton).first).isLoading, true);
+    await tester.tap(find.byType(AppButton).first);
+    await tester.tap(find.byKey(const ValueKey('cancel-attendance-camera')));
     await tester.pumpAndSettle();
     final file = (await tester.runAsync(
         () => File('${directory.path}/late.jpg').writeAsBytes([1, 2, 3])))!;
@@ -218,7 +215,7 @@ void main() {
       (tester) async {
     camera.photoWait = Completer<XFile>();
     await open(tester);
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(find.byType(AppButton).first);
     await tester.pump();
     await tester.tapAt(const Offset(1, 1));
     await tester.pump();
@@ -267,9 +264,23 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await open(tester, rtl: true, dark: true, scale: 2);
     expect(find.text('صورة الحضور'), findsOneWidget);
-    await tester.ensureVisible(find.byType(AppTextButton));
+    expect(
+        find.descendant(
+            of: find.byType(Dialog), matching: find.byType(Scrollable)),
+        findsNothing);
+    expect(tester.getSize(find.byType(CameraPreview)).height, greaterThan(0));
+    final close = find.byKey(const ValueKey('cancel-attendance-camera'));
+    expect(tester.getCenter(close).dx,
+        greaterThan(tester.getCenter(find.byType(Dialog)).dx),
+        reason: 'Close remains at the top right in Arabic');
+    expect(tester.getRect(close).bottom,
+        lessThanOrEqualTo(tester.getRect(find.byType(CameraPreview)).top));
+
+    expect(find.byKey(const ValueKey('cancel-attendance-camera')).hitTestable(),
+        findsOneWidget,
+        reason: 'Cancel stays visible without scrolling');
     expect(tester.takeException(), isNull);
-    await tester.tap(find.byType(AppTextButton));
+    await tester.tap(find.byKey(const ValueKey('cancel-attendance-camera')));
     await tester.pumpAndSettle();
     expect(camera.released, true);
   });

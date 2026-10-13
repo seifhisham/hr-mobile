@@ -38,6 +38,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       ShellRoute(
         builder: (context, state, child) => AppScaffold(
+          extendBody: true,
           bottomNavigationBar: EmployeeNavigation(
               index: switch (state.uri.path) {
             '/attendance' => 1,

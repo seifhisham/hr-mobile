@@ -21,6 +21,7 @@ class AppScaffold extends StatelessWidget {
     this.endDrawer,
     this.backgroundColor,
     this.resizeToAvoidBottomInset = true,
+    this.extendBody = false,
     this.platform,
   });
 
@@ -32,6 +33,7 @@ class AppScaffold extends StatelessWidget {
   final Widget? endDrawer;
   final Color? backgroundColor;
   final bool resizeToAvoidBottomInset;
+  final bool extendBody;
   final AppPlatformStyle? platform;
 
   @override
@@ -65,10 +67,8 @@ class AppScaffold extends StatelessWidget {
             if (floatingActionButton != null)
               Positioned(
                 right: AppSpacing.lg,
-                bottom: AppSpacing.lg +
-                    (bottomNavigationBar != null
-                        ? 56.h
-                        : 0),
+                bottom:
+                    AppSpacing.lg + (bottomNavigationBar != null ? 56.h : 0),
                 child: floatingActionButton!,
               ),
             if (bottomNavigationBar != null)
@@ -88,6 +88,7 @@ class AppScaffold extends StatelessWidget {
     return Scaffold(
       appBar: appBar,
       body: body,
+      extendBody: extendBody,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
       drawer: drawer,
