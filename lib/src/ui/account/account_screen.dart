@@ -29,6 +29,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     final schedule = user.schedule;
     return AppScaffold(
       body: SafeArea(
+          bottom: false,
           child: RefreshIndicator(
               onRefresh: () async {
                 if (!ref.read(authControllerProvider).isLoading) {
@@ -37,7 +38,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(AppSpacing.lg.w),
+                padding: EdgeInsets.all(AppSpacing.lg.w).copyWith(
+                    bottom:
+                        AppSpacing.lg.w + MediaQuery.paddingOf(context).bottom),
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

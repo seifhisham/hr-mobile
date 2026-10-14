@@ -1084,6 +1084,17 @@ void main() {
       expect(tester.getRect(find.byType(Scaffold).last).bottom,
           closeTo(tester.getRect(find.byType(Scaffold).first).bottom, 1),
           reason: 'The page canvas continues behind the floating dock');
+      final scrollView = find.byType(SingleChildScrollView).first;
+      expect(tester.getRect(scrollView).bottom,
+          closeTo(tester.getRect(find.byType(Scaffold).first).bottom, 1),
+          reason:
+              'Content scrolls behind the dock without a rectangular cutoff');
+      final scrollPadding = tester
+          .widget<SingleChildScrollView>(scrollView)
+          .padding!
+          .resolve(TextDirection.ltr);
+      expect(scrollPadding.bottom, greaterThan(tester.getSize(dock).height),
+          reason: 'The last content can scroll clear of the dock');
       expect(tester.takeException(), isNull);
     }
   });

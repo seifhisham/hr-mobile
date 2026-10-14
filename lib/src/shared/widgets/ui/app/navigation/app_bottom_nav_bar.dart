@@ -140,7 +140,7 @@ class AppBottomNavBar extends StatelessWidget {
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : AppDurations.normal;
-    final foreground = featured ? colors.onPrimary : colors.onInverseSurface;
+    final foreground = colors.onInverseSurface;
     var tapCount = 0;
     return StatefulBuilder(
         builder: (context, setTapState) => Semantics(
@@ -151,8 +151,12 @@ class AppBottomNavBar extends StatelessWidget {
                 message: items[i].label,
                 excludeFromSemantics: true,
                 child: Material(
-                  color: featured ? colors.primary : colors.inverseSurface,
-                  shape: featured ? const CircleBorder() : null,
+                  color: colors.inverseSurface,
+                  shape: featured
+                      ? CircleBorder(
+                          side: BorderSide(
+                              color: colors.surface, width: AppSpacing.xxs))
+                      : null,
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     overlayColor: WidgetStateProperty.resolveWith((states) {
@@ -203,7 +207,7 @@ class AppBottomNavBar extends StatelessWidget {
                                   padding: EdgeInsets.all(AppSpacing.xs),
                                   decoration: BoxDecoration(
                                     color: featured
-                                        ? colors.primary
+                                        ? colors.inverseSurface
                                         : selected
                                             ? colors.onInverseSurface
                                                 .withValues(alpha: 0.12)

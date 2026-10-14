@@ -15,11 +15,14 @@ class HomePage extends ConsumerWidget {
     if (user == null) return const SizedBox.shrink();
     return AppScaffold(
       body: SafeArea(
+          bottom: false,
           child: RefreshIndicator(
               onRefresh: () => ref.read(attendanceProvider.notifier).refresh(),
               child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(AppSpacing.lg),
+                  padding: EdgeInsets.all(AppSpacing.lg).copyWith(
+                      bottom:
+                          AppSpacing.lg + MediaQuery.paddingOf(context).bottom),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

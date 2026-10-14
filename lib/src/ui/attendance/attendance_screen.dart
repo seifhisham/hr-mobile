@@ -27,6 +27,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     final snapshot = state.snapshot;
     return AppScaffold(
         body: SafeArea(
+            bottom: false,
             child: RefreshIndicator(
                 onRefresh: () async {
                   if (!state.busy) {
@@ -35,7 +36,9 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                 },
                 child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(AppSpacing.lg.w),
+                    padding: EdgeInsets.all(AppSpacing.lg.w).copyWith(
+                        bottom: AppSpacing.lg.w +
+                            MediaQuery.paddingOf(context).bottom),
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

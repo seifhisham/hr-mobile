@@ -52,6 +52,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                         ?.copyWith(fontWeight: FontWeight.w600)))
             : null,
         body: SafeArea(
+            bottom: false,
             child: RefreshIndicator(
                 onRefresh: () async {
                   await ref.read(salesAccessProvider.notifier).refresh();
@@ -59,7 +60,9 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                 },
                 child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(AppSpacing.lg),
+                    padding: EdgeInsets.all(AppSpacing.lg).copyWith(
+                        bottom: AppSpacing.lg +
+                            MediaQuery.paddingOf(context).bottom),
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

@@ -124,11 +124,14 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
         ref.watch(sessionProvider.select((s) => s.userOrNull?.employee));
     return AppScaffold(
         body: SafeArea(
+            bottom: false,
             child: RefreshIndicator(
                 onRefresh: () => ref.read(requestsProvider.notifier).refresh(),
                 child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(AppSpacing.lg.w),
+                    padding: EdgeInsets.all(AppSpacing.lg.w).copyWith(
+                        bottom: AppSpacing.lg.w +
+                            MediaQuery.paddingOf(context).bottom),
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
