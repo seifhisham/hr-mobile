@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/sales_activity.dart';
 import '../auth/providers/session_provider.dart';
 import 'sales_provider.dart';
@@ -15,11 +15,11 @@ class SalesDetailsScreen extends ConsumerStatefulWidget {
 class _SalesDetailsScreenState extends ConsumerState<SalesDetailsScreen> {
   final _reason = TextEditingController();
   final _form = GlobalKey<FormState>();
-  late final String? _owner;
+  late final Object? _owner;
   @override
   void initState() {
     super.initState();
-    _owner = ref.read(sessionProvider).userOrNull?.id;
+    _owner = ref.read(sessionProvider).userOrNull?.sessionIdentity;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(salesMutationProvider.notifier).clear();
     });
@@ -54,7 +54,7 @@ class _SalesDetailsScreenState extends ConsumerState<SalesDetailsScreen> {
                 ]));
     if (confirmed != true ||
         !mounted ||
-        ref.read(sessionProvider).userOrNull?.id != _owner) {
+        ref.read(sessionProvider).userOrNull?.sessionIdentity != _owner) {
       return;
     }
     await ref
@@ -70,10 +70,13 @@ class _SalesDetailsScreenState extends ConsumerState<SalesDetailsScreen> {
     final mutation = ref.watch(salesMutationProvider);
     final item =
         detail.value?.fold<SalesActivity?>((_) => null, (item) => item);
-    ref.listen(sessionProvider.select((s) => s.userOrNull?.id), (_, next) {
+    ref.listen(sessionProvider.select((s) => s.userOrNull?.sessionIdentity),
+        (_, next) {
       if (next != _owner) _reason.clear();
     });
-    if (user == null || user.id != _owner) return const SizedBox.shrink();
+    if (user == null || user.sessionIdentity != _owner) {
+      return const SizedBox.shrink();
+    }
     final owner = user.employee?.id;
     final busy = mutation.action.isLoading || mutation.pending != null;
     return AppScaffold(

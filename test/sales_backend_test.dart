@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/data/models/sales_activity.dart';
-import 'package:hrmobile/src/services/sales_service.dart';
-import 'package:hrmobile/src/utils/failure.dart';
-import 'package:hrmobile/src/ui/sales/sales_provider.dart';
-import 'package:hrmobile/src/utils/async_state.dart';
+import 'package:hodour/src/data/models/sales_activity.dart';
+import 'package:hodour/src/services/sales_service.dart';
+import 'package:hodour/src/utils/failure.dart';
+import 'package:hodour/src/ui/sales/sales_provider.dart';
+import 'package:hodour/src/utils/async_state.dart';
 
 class _RealHttp extends HttpOverrides {}
 
@@ -19,12 +19,14 @@ void main() {
       expect(Uri.parse(base).host, '127.0.0.1',
           reason: 'Isolated loopback database only.');
       final admin = Dio(BaseOptions(baseUrl: base));
-      final token = (await admin.post<Map<String, dynamic>>('/auth/login',
-              data: {
-            'email': 'admin@example.test',
-            'password': 'Isolated-admin-password-2026'
-          }))
-          .data!['token'];
+      final token =
+          (await admin.post<Map<String, dynamic>>('/auth/login', data: {
+        'workspace': const String.fromEnvironment('TEST_WORKSPACE',
+            defaultValue: 'test-company'),
+        'email': 'admin@example.test',
+        'password': 'Isolated-admin-password-2026'
+      }))
+              .data!['token'];
       admin.options.headers['Authorization'] = 'Bearer $token';
       final schedule =
           (await admin.get<List<dynamic>>('/schedules')).data!.first['id'];
@@ -48,6 +50,8 @@ void main() {
         final client = Dio(BaseOptions(baseUrl: base));
         client.options.headers['Authorization'] =
             'Bearer ${(await client.post<Map<String, dynamic>>('/auth/login', data: {
+              'workspace': const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               'email': employee['email'],
               'password': 'Isolated-sales-password-2026'
             })).data!['token']}';

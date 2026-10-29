@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/attendance_model.dart';
 import '../../data/repositories/attendance_repository.dart';
 import '../../services/attendance_service.dart';
@@ -12,8 +12,10 @@ final attendanceCaptureProvider = Provider<AttendanceCaptureService>(
 final attendanceProvider =
     StateNotifierProvider<AttendanceController, AttendanceState>((ref) {
   // Dispose all personal state on sign-out/account change, including pending work.
-  final identity = ref.watch(sessionProvider.select((s) =>
-      (userId: s.userOrNull?.id, employeeId: s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select((s) => (
+        userId: s.userOrNull?.sessionIdentity,
+        employeeId: s.userOrNull?.employee?.id
+      )));
   return AttendanceController(ref.read(attendanceRepositoryProvider),
       ref.read(attendanceCaptureProvider),
       enabled: identity.employeeId != null);
@@ -56,9 +58,11 @@ class AttendanceController extends StateNotifier<AttendanceState> {
   final AttendanceRepository repository;
   final AttendanceCaptureService captureService;
   Future<void>? _refreshing;
+  bool _refreshAfterLoad = false;
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool afterMutation = false}) async {
     if (_refreshing case final pending?) {
+      if (afterMutation) _refreshAfterLoad = true;
       await pending;
       return;
     }
@@ -69,6 +73,10 @@ class AttendanceController extends StateNotifier<AttendanceState> {
       await pending;
     } finally {
       _refreshing = null;
+    }
+    if (_refreshAfterLoad && mounted) {
+      _refreshAfterLoad = false;
+      await refresh();
     }
   }
 
@@ -158,7 +166,8 @@ class AttendanceController extends StateNotifier<AttendanceState> {
           workDate: snapshot.workDate,
           records: [saved, ...snapshot.records.where((r) => r.id != saved.id)],
           schedule: snapshot.schedule,
-          policy: snapshot.policy);
+          policy: snapshot.policy,
+          requests: snapshot.requests);
       state = AttendanceState(
           data: RequestSuccess(confirmedSnapshot),
           action: const RequestLoading());
@@ -169,6 +178,16 @@ class AttendanceController extends StateNotifier<AttendanceState> {
         failure.statusCode != 409) {
       state = AttendanceState(
           data: RequestSuccess(snapshot), action: RequestFailure(failure));
+      return;
+    }
+    if (failure case ServerFailure(statusCode: 409)) {
+      final reconciled = await repository.load();
+      if (!mounted) return;
+      state = AttendanceState(
+          data: reconciled.fold(
+              (f) => RequestFailure(f), (s) => RequestSuccess(s)),
+          previousSnapshot: snapshot,
+          action: RequestFailure(failure));
       return;
     }
     // Never reuse evidence or blindly resubmit after a lost/invalid response.

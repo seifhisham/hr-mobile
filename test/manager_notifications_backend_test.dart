@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/data/models/employee_request.dart';
-import 'package:hrmobile/src/services/auth_service.dart';
-import 'package:hrmobile/src/services/notifications_service.dart';
-import 'package:hrmobile/src/services/requests_service.dart';
+import 'package:hodour/src/data/models/employee_request.dart';
+import 'package:hodour/src/services/auth_service.dart';
+import 'package:hodour/src/services/notifications_service.dart';
+import 'package:hodour/src/services/requests_service.dart';
 
 class _RealHttpOverrides extends HttpOverrides {}
 
@@ -30,18 +30,24 @@ void main() {
         admin.close(force: true);
       });
       final employee = (await employeeAuth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-employee@example.test',
               password: 'Isolated-employee-password-2026'))
           .getOrElse((f) => throw f);
       final manager = (await managerAuth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-manager@example.test',
               password: 'Isolated-manager-password-2026'))
           .getOrElse((f) => throw f);
-      final session = await admin.post<Map<String, dynamic>>('auth/login',
-          data: {
-            'email': 'admin@example.test',
-            'password': 'Isolated-admin-password-2026'
-          });
+      final session =
+          await admin.post<Map<String, dynamic>>('auth/login', data: {
+        'workspace': const String.fromEnvironment('TEST_WORKSPACE',
+            defaultValue: 'test-company'),
+        'email': 'admin@example.test',
+        'password': 'Isolated-admin-password-2026'
+      });
       admin.options.headers['Authorization'] =
           'Bearer ${session.data!['token']}';
       final profiles = (await admin.get<List<dynamic>>('employees')).data!;
@@ -66,10 +72,14 @@ void main() {
         });
       }
       (await employeeAuth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-employee@example.test',
               password: 'Isolated-employee-password-2026'))
           .getOrElse((f) => throw f);
       (await managerAuth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-manager@example.test',
               password: 'Isolated-manager-password-2026'))
           .getOrElse((f) => throw f);

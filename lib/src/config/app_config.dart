@@ -1,4 +1,5 @@
 import '../middleware/dio_logging_interceptor.dart';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -9,6 +10,9 @@ class AppConfig {
   static String get baseUrl => _getBaseUrl();
 
   static Future<void> init() async {
+    if (kReleaseMode && Uri.parse(baseUrl).scheme != 'https') {
+      throw StateError('Production API_BASE_URL must use HTTPS.');
+    }
     dio = Dio(
       BaseOptions(
         baseUrl: _getBaseUrl(),

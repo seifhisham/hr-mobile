@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/sales_activity.dart';
 import '../../data/repositories/sales_repository.dart';
 import '../../services/sales_service.dart';
@@ -9,7 +9,8 @@ final salesRepositoryProvider =
 final salesAccessProvider =
     StateNotifierProvider<SalesAccessController, RequestState<SalesAccess>>(
         (ref) {
-  final identity = ref.watch(sessionProvider.select((s) => s.userOrNull?.id));
+  final identity =
+      ref.watch(sessionProvider.select((s) => s.userOrNull?.sessionIdentity));
   return SalesAccessController(ref.read(salesRepositoryProvider),
       enabled: identity != null);
 });
@@ -75,8 +76,8 @@ class SalesListState {
 final salesListProvider =
     StateNotifierProvider.family<SalesListController, SalesListState, bool>(
         (ref, team) {
-  final identity = ref.watch(sessionProvider
-      .select((s) => (s.userOrNull?.id, s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select(
+      (s) => (s.userOrNull?.sessionIdentity, s.userOrNull?.employee?.id)));
   final month =
       ref.read(sessionProvider).userOrNull?.today.substring(0, 7) ?? '2000-01';
   final controller = SalesListController(ref.read(salesRepositoryProvider),
@@ -226,8 +227,8 @@ class SalesMutationState {
 
 final salesMutationProvider =
     StateNotifierProvider<SalesMutationController, SalesMutationState>((ref) {
-  final identity = ref.watch(sessionProvider
-      .select((s) => (s.userOrNull?.id, s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select(
+      (s) => (s.userOrNull?.sessionIdentity, s.userOrNull?.employee?.id)));
   return SalesMutationController(ref.read(salesRepositoryProvider),
       employeeId: identity.$2,
       getAccess: () => accessValue(ref.read(salesAccessProvider)),
@@ -411,7 +412,7 @@ class SalesMutationController extends StateNotifier<SalesMutationState> {
 
 final salesDetailProvider = FutureProvider.autoDispose
     .family<Either<Failure, SalesActivity>, String>((ref, id) {
-  ref.watch(sessionProvider.select((s) => s.userOrNull?.id));
+  ref.watch(sessionProvider.select((s) => s.userOrNull?.sessionIdentity));
   ref.watch(salesMutationProvider.select((s) => s.epoch));
   return ref.read(salesRepositoryProvider).activity(id);
 });

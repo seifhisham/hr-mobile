@@ -6,6 +6,13 @@
 .env.*
 !.env.example
 /artifacts/
+/output/
+/tmp/
+/.secrets/
+/android/key.properties
+*.jks
+*.keystore
+*firebase-adminsdk*.json
 /android/build/
 
 *.class

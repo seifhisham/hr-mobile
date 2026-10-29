@@ -6,10 +6,10 @@ import 'package:fpdart/fpdart.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as image;
 import 'package:image_picker/image_picker.dart';
-import 'package:hrmobile/src/data/models/attendance_model.dart';
-import 'package:hrmobile/src/services/attendance_capture_service.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_provider.dart';
-import 'package:hrmobile/src/utils/utils.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
+import 'package:hodour/src/services/attendance_capture_service.dart';
+import 'package:hodour/src/ui/attendance/attendance_provider.dart';
+import 'package:hodour/src/utils/utils.dart';
 import 'attendance_test.dart'
     show policyJson, snapshot, recordJson, FakeRepository;
 

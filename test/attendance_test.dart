@@ -4,12 +4,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:image/image.dart' as image;
-import 'package:hrmobile/src/data/models/attendance_model.dart';
-import 'package:hrmobile/src/data/repositories/attendance_repository.dart';
-import 'package:hrmobile/src/services/attendance_service.dart';
-import 'package:hrmobile/src/services/attendance_capture_service.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_provider.dart';
-import 'package:hrmobile/src/utils/utils.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
+import 'package:hodour/src/data/repositories/attendance_repository.dart';
+import 'package:hodour/src/services/attendance_service.dart';
+import 'package:hodour/src/services/attendance_capture_service.dart';
+import 'package:hodour/src/ui/attendance/attendance_provider.dart';
+import 'package:hodour/src/utils/utils.dart';
 import 'auth_session_test.dart' show TestAdapter, jsonResponse, schedules;
 
 final policyJson = {
@@ -138,13 +138,15 @@ void main() {
       handler.next(options);
     }));
     dio.httpClientAdapter =
-        TestAdapter((options) => options.path == '/attendance/policy'
-            ? jsonResponse(policyJson)
-            : jsonResponse({
-                'workDate': '2026-10-05',
-                'records': <Object?>[],
-                'schedule': schedules.first,
-              }));
+        TestAdapter((options) => options.path == '/requests/me'
+            ? jsonResponse([])
+            : options.path == '/attendance/policy'
+                ? jsonResponse(policyJson)
+                : jsonResponse({
+                    'workDate': '2026-10-05',
+                    'records': <Object?>[],
+                    'schedule': schedules.first,
+                  }));
     final loading = AttendanceService(client: dio).load();
     await recordsStarted.future;
     await Future<void>.delayed(Duration.zero);
@@ -195,6 +197,7 @@ void main() {
         });
       }
       if (options.path == '/attendance/policy') return jsonResponse(policyJson);
+      if (options.path == '/requests/me') return jsonResponse([]);
       paths.add(options.uri.path);
       expect(options.contentType, startsWith('multipart/form-data; boundary='));
       final form = options.data as FormData;
@@ -321,7 +324,10 @@ void main() {
     expect(repository.posts, 1);
     expect(controller.state.snapshot!.current!.checkOut, isNotNull);
     expect(controller.state.snapshot!.canSubmit, false);
-    expect(controller.state.noticeKey, 'attendance.confirmed');
+    expect(controller.state.action, isA<RequestFailure<void>>());
+    expect((controller.state.action as RequestFailure<void>).failure.message,
+        'Already closed');
+    expect(controller.state.pending, isNull);
     controller.dispose();
   });
   test('confirmed writes expose open/closed interval even when read-back fails',

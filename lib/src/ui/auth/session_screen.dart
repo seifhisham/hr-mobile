@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import 'providers/session_provider.dart';
 import 'providers/auth_provider.dart';
 

@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/utils.dart';
 import 'attendance_location_source.dart';
+import 'push_notification_service.dart';
 
 class AttendanceLocationWarning {
   static final instance = AttendanceLocationWarning();
@@ -10,15 +11,20 @@ class AttendanceLocationWarning {
   int _revision = 0;
   static const _id = 150;
 
-  Future<void> _initialize() => _initializing ??= _plugin
-      .initialize(
-          settings: const InitializationSettings(
-              android: AndroidInitializationSettings('ic_attendance'),
-              iOS: DarwinInitializationSettings(
-                  requestAlertPermission: false,
-                  requestBadgePermission: false,
-                  requestSoundPermission: false)))
-      .then((_) {});
+  Future<void> _initialize() {
+    if (PushNotificationService.supported) {
+      return PushNotificationService.instance.initializeLocalNotifications();
+    }
+    return _initializing ??= _plugin
+        .initialize(
+            settings: const InitializationSettings(
+                android: AndroidInitializationSettings('ic_attendance'),
+                iOS: DarwinInitializationSettings(
+                    requestAlertPermission: false,
+                    requestBadgePermission: false,
+                    requestSoundPermission: false)))
+        .then((_) {});
+  }
 
   Future<bool> requestPermission() async {
     if (!AttendanceLocationSource.supported) return false;

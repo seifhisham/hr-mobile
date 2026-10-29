@@ -134,6 +134,8 @@ class CodegenLoader extends AssetLoader{
     }
   },
   "attendance": {
+    "worked": "عمل",
+    "forgotten_pending_check_in": "تم إرسال طلب تسجيل الانصراف المنسي؛ بانتظار موافقة الموارد البشرية. يمكنك تسجيل الحضور لليوم",
     "not_checked_in": "لم يتم تسجيل حضور ليوم العمل هذا.",
     "elapsed": "مدة العمل: {time}",
     "not_checked_in_short": "لم يتم تسجيل الحضور",
@@ -206,11 +208,18 @@ class CodegenLoader extends AssetLoader{
     "onboarding_subtitle_3": "Find trending destinations and must-see attractions,\nall tailored to enhance your travel plans."
   },
   "home": {
+    "assigned_shift": "الوردية المحددة",
+    "checked_in": "الحضور {time}",
+    "good_morning": "صباح الخير، {name}",
+    "good_afternoon": "مساء الخير، {name}",
+    "good_evening": "مساء الخير، {name}",
     "home_title": "الرئيسية",
     "welcome_home": "Welcome Home!",
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "company_code": "رمز الشركة",
+    "company_code_invalid": "أدخل رمز الشركة: من 2 إلى 63 حرفاً إنجليزياً أو رقماً أو شرطة.",
     "log_in": "تسجيل الدخول",
     "log_in_subtitle": "أدخل بريدك الإلكتروني وكلمة المرور",
     "email": "البريد الإلكتروني",
@@ -285,6 +294,12 @@ class CodegenLoader extends AssetLoader{
     "profile_stale": "تعذر تحديث الملف. يتم عرض آخر بيانات تم تحميلها."
   },
   "design": {
+    "needs_attention": "يحتاج إلى انتباهك",
+    "review_request": "مراجعة طلب القسم",
+    "attention_clear": "أنت متابع لكل شيء. لا توجد إجراءات مطلوبة.",
+    "attention_unavailable": "تعذر التحقق من جميع الإجراءات. يرجى المحاولة مرة أخرى.",
+    "attention_retry": "حاول مرة أخرى",
+    "attention_loading": "جارٍ التحقق من الإجراءات…",
     "welcome": "مرحباً بعودتك،",
     "your_workday": "يوم عملك في لمحة",
     "open_attendance": "فتح الحضور",
@@ -294,7 +309,7 @@ class CodegenLoader extends AssetLoader{
     "your_profile": "ملفك الوظيفي",
     "profile_hint": "بياناتك وجدول عملك وأمان حسابك.",
     "attendance_hint": "سجّل يومك وراجع سجل حضورك.",
-    "portal": "بوابة الموظفين",
+    "portal": "حضور",
     "security_hint": "حافظ على أمان حسابك بكلمة مرور جديدة.",
     "light_mode": "التبديل إلى الوضع الفاتح",
     "dark_mode": "التبديل إلى الوضع الداكن"
@@ -493,6 +508,14 @@ class CodegenLoader extends AssetLoader{
     "fresh_unavailable": "لا تتوفر قراءة موقع حديثة. تحقق من صلاحية الموقع الدقيق وخدمات الموقع ثم حاول مجددًا.",
     "policy_missing": "إعدادات متابعة الموقع غير متاحة. حدّث الحضور أو تواصل مع الموارد البشرية.",
     "phone_only": "متابعة الحضور تتطلب هاتف أندرويد أو آيفون."
+  },
+  "update": {
+    "required": "يلزم تحديث التطبيق",
+    "checking": "جارٍ التحقق من التحديثات",
+    "message": "يتوفر إصدار أحدث من حضور. يرجى تحديث التطبيق للمتابعة.",
+    "action": "تحديث الآن",
+    "check_failed": "تعذر التحقق من التحديثات. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
+    "open_failed": "تعذر فتح المتجر. يرجى المحاولة مرة أخرى."
   }
 };
 static const Map<String,dynamic> _en = {
@@ -615,6 +638,8 @@ static const Map<String,dynamic> _en = {
     }
   },
   "attendance": {
+    "worked": "worked",
+    "forgotten_pending_check_in": "Forgotten check-out submitted; awaiting HR approval. You can check in for today",
     "not_checked_in": "No check-in recorded for this workday.",
     "elapsed": "Time worked: {time}",
     "not_checked_in_short": "Not checked in",
@@ -687,11 +712,18 @@ static const Map<String,dynamic> _en = {
     "onboarding_subtitle_3": "Find trending destinations and must-see attractions,\nall tailored to enhance your travel plans."
   },
   "home": {
+    "assigned_shift": "Assigned shift",
+    "checked_in": "Checked in {time}",
+    "good_morning": "Good morning, {name}",
+    "good_afternoon": "Good afternoon, {name}",
+    "good_evening": "Good evening, {name}",
     "home_title": "Home",
     "welcome_home": "Welcome Home!",
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "company_code": "Company code",
+    "company_code_invalid": "Enter a company code: 2–63 letters, digits or hyphens.",
     "log_in": "Log in",
     "log_in_subtitle": "Enter your email and password",
     "email": "Email",
@@ -766,6 +798,12 @@ static const Map<String,dynamic> _en = {
     "profile_stale": "Profile could not be refreshed. Showing previously loaded details."
   },
   "design": {
+    "needs_attention": "Needs your attention",
+    "review_request": "Review department request",
+    "attention_clear": "You’re all caught up. No actions needed.",
+    "attention_unavailable": "Unable to check all actions. Please try again.",
+    "attention_retry": "Try again",
+    "attention_loading": "Checking for actions…",
     "welcome": "Welcome back,",
     "your_workday": "Your workday, at a glance",
     "open_attendance": "Open attendance",
@@ -775,7 +813,7 @@ static const Map<String,dynamic> _en = {
     "your_profile": "Your employee profile",
     "profile_hint": "Your details, work schedule and account security.",
     "attendance_hint": "Record your day and review your attendance.",
-    "portal": "EMPLOYEE PORTAL",
+    "portal": "Hodour",
     "security_hint": "Keep your account protected with a new password.",
     "light_mode": "Switch to light mode",
     "dark_mode": "Switch to dark mode"
@@ -974,6 +1012,14 @@ static const Map<String,dynamic> _en = {
     "fresh_unavailable": "A fresh location fix is unavailable. Check precise-location permission and location services, then try again.",
     "policy_missing": "Location monitoring settings are unavailable. Refresh attendance or contact HR.",
     "phone_only": "Attendance monitoring requires an Android or iOS phone."
+  },
+  "update": {
+    "required": "Update required",
+    "checking": "Checking for updates",
+    "message": "A newer version of Hodour is available. Update the app to continue.",
+    "action": "Update now",
+    "check_failed": "Unable to check for updates. Check your internet connection and try again.",
+    "open_failed": "Unable to open the store. Please try again."
   }
 };
 static const Map<String, Map<String,dynamic>> mapLocales = {"ar": _ar, "en": _en};

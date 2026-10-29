@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/navigation/app_bottom_nav_bar.dart';
+import 'package:hodour/src/shared/widgets/ui/app/navigation/app_bottom_nav_bar.dart';
 
 void main() {
   testWidgets(

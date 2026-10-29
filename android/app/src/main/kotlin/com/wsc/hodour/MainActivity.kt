@@ -1,4 +1,4 @@
-package com.wsc.hr_employee
+package com.wsc.hodour
 
 import io.flutter.embedding.android.FlutterActivity
 

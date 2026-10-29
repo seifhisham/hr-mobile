@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/employee_notification.dart';
 import '../../data/repositories/notifications_repository.dart';
 import '../../services/notifications_service.dart';
@@ -8,8 +8,8 @@ final notificationsRepositoryProvider =
     Provider<NotificationsRepository>((ref) => NotificationsService.instance);
 final notificationsProvider =
     StateNotifierProvider<NotificationsController, NotificationsState>((ref) {
-  final identity = ref.watch(sessionProvider
-      .select((s) => (s.userOrNull?.id, s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select(
+      (s) => (s.userOrNull?.sessionIdentity, s.userOrNull?.employee?.id)));
   return NotificationsController(ref.read(notificationsRepositoryProvider),
       enabled: identity.$1 != null);
 });

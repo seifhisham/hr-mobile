@@ -1,6 +1,8 @@
 # Mobile app API and implementation guide
 
-Verified against the backend source on 2026-10-12. This is the shared Flutter integration guide for the employee application. All endpoint paths below include `/api`.
+Updated against the backend source on 2026-10-15. This is the shared Flutter integration guide for the employee application. All endpoint paths below include `/api`.
+
+Login now accepts company code as `workspace` (lowercase letters/digits/hyphens, 2–63 characters). Clients should always send it; omission is accepted only when HR_DEFAULT_WORKSPACE is explicitly configured. Sessions resolve company identity on the server; caller-supplied company headers do not change it. Existing endpoint paths, response shapes and business permissions remain, with companyId added to user identity. Branch-restricted HR APIs are implemented; platform-owner APIs remain a later gate. Attendance policy now resolves the employee’s assigned branch or an existing workday’s saved branch policy. Own attendance records include branchId and branchName. Employees cannot choose a different attendance branch.
 
 Read [MOBILE_BRD.md](MOBILE_BRD.md) for what to build and acceptance criteria. Use this file for connection, authentication, attendance, notifications, and shared error handling. Read [MOBILE-REQUESTS.md](MOBILE-REQUESTS.md) when implementing request forms, history, withdrawal, or direct manager recommendations; it owns the detailed request contract. Inspect current backend source when a contract changes, and keep both guides consistent.
 
@@ -64,6 +66,7 @@ All endpoints except health and login require authentication. Attendance and own
 
 ```json
 {
+  "workspace": "your-company-code",
   "email": "employee@company.example",
   "password": "a-unique-account-password"
 }
@@ -322,7 +325,15 @@ Flutter behavior:
 4. Resolve own attendance links from `/attendance/me`. A record outside its 93-record window cannot be assumed retrievable as full attendance detail; show unavailable guidance.
 5. Keep unexpected/unknown notification types readable without exposing privileged actions. HR/admin-linked accounts may return HR alerts; do not route them to employee approval or correction controls.
 
-These are REST/in-app notifications. Background push, WebSockets, email, and SMS are not configured.
+Android push uses the same authorized REST inbox. Register via authenticated
+`POST /api/push/devices` with exactly `{deviceId, token, platform: "android"}`
+(HTTP 200). Persist one installation UUID; send the FCM registration token, not
+a Firebase Installation ID. Register on login, restoration and token rotation.
+Before clearing credentials on logout, attempt authenticated
+`DELETE /api/push/devices/:deviceId` (HTTP 204). The server derives company/user
+from the session. Respect 429 Retry-After and stop retrying a rejected session.
+See [FCM-ANDROID.md](FCM-ANDROID.md) and backend `PUSH.md` for delivery/testing.
+iOS push, WebSockets, email and SMS remain outside this integration.
 
 ## 8. Shared errors and mutation reconciliation
 

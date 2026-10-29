@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/data/models/attendance_model.dart';
-import 'package:hrmobile/src/services/attendance_service.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
+import 'package:hodour/src/services/attendance_service.dart';
 import 'auth_session_test.dart' show TestAdapter, jsonResponse;
 import 'attendance_test.dart' show recordJson;
 

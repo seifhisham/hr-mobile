@@ -118,6 +118,8 @@
     }
   },
   "attendance": {
+    "worked": "عمل",
+    "forgotten_pending_check_in": "تم إرسال طلب تسجيل الانصراف المنسي؛ بانتظار موافقة الموارد البشرية. يمكنك تسجيل الحضور لليوم",
     "not_checked_in": "لم يتم تسجيل حضور ليوم العمل هذا.",
     "elapsed": "مدة العمل: {time}",
     "not_checked_in_short": "لم يتم تسجيل الحضور",
@@ -190,11 +192,19 @@
     "onboarding_subtitle_3": "Find trending destinations and must-see attractions,\nall tailored to enhance your travel plans."
   },
   "home": {
+    "assigned_shift": "الوردية المحددة",
+    "checked_in": "الحضور {time}",
+    "good_morning": "صباح الخير، {name}",
+    "good_afternoon": "مساء الخير، {name}",
+    "good_evening": "مساء الخير، {name}",
+
     "home_title": "الرئيسية",
     "welcome_home": "Welcome Home!",
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "company_code": "رمز الشركة",
+    "company_code_invalid": "أدخل رمز الشركة: من 2 إلى 63 حرفاً إنجليزياً أو رقماً أو شرطة.",
     "log_in": "تسجيل الدخول",
     "log_in_subtitle": "أدخل بريدك الإلكتروني وكلمة المرور",
     "email": "البريد الإلكتروني",
@@ -269,6 +279,13 @@
     "profile_stale": "تعذر تحديث الملف. يتم عرض آخر بيانات تم تحميلها."
   },
   "design": {
+    "needs_attention": "يحتاج إلى انتباهك",
+    "review_request": "مراجعة طلب القسم",
+    "attention_clear": "أنت متابع لكل شيء. لا توجد إجراءات مطلوبة.",
+    "attention_unavailable": "تعذر التحقق من جميع الإجراءات. يرجى المحاولة مرة أخرى.",
+    "attention_retry": "حاول مرة أخرى",
+    "attention_loading": "جارٍ التحقق من الإجراءات…",
+
     "welcome": "مرحباً بعودتك،",
     "your_workday": "يوم عملك في لمحة",
     "open_attendance": "فتح الحضور",
@@ -278,7 +295,7 @@
     "your_profile": "ملفك الوظيفي",
     "profile_hint": "بياناتك وجدول عملك وأمان حسابك.",
     "attendance_hint": "سجّل يومك وراجع سجل حضورك.",
-    "portal": "بوابة الموظفين",
+    "portal": "حضور",
     "security_hint": "حافظ على أمان حسابك بكلمة مرور جديدة.",
     "light_mode": "التبديل إلى الوضع الفاتح",
     "dark_mode": "التبديل إلى الوضع الداكن"
@@ -477,5 +494,13 @@
     "fresh_unavailable": "لا تتوفر قراءة موقع حديثة. تحقق من صلاحية الموقع الدقيق وخدمات الموقع ثم حاول مجددًا.",
     "policy_missing": "إعدادات متابعة الموقع غير متاحة. حدّث الحضور أو تواصل مع الموارد البشرية.",
     "phone_only": "متابعة الحضور تتطلب هاتف أندرويد أو آيفون."
+  },
+  "update": {
+    "required": "يلزم تحديث التطبيق",
+    "checking": "جارٍ التحقق من التحديثات",
+    "message": "يتوفر إصدار أحدث من حضور. يرجى تحديث التطبيق للمتابعة.",
+    "action": "تحديث الآن",
+    "check_failed": "تعذر التحقق من التحديثات. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
+    "open_failed": "تعذر فتح المتجر. يرجى المحاولة مرة أخرى."
   }
 }

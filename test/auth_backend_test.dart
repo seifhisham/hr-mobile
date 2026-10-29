@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/services/auth_service.dart';
+import 'package:hodour/src/services/auth_service.dart';
 
 /// Opt-in: run only against the throwaway backend created by the verification harness.
 /// flutter test test/auth_backend_test.dart --dart-define=AUTH_TEST_API=http://127.0.0.1:PORT/api
@@ -25,6 +25,8 @@ void main() {
         client.close(force: true);
       });
       final login = await auth.login(
+          workspace: const String.fromEnvironment('TEST_WORKSPACE',
+              defaultValue: 'test-company'),
           email: 'mobile-employee@example.test',
           password: 'Isolated-employee-password-2026');
       expect(login.isRight(), isTrue);
@@ -61,6 +63,8 @@ void main() {
           reason: 'Backend must revoke all sessions.');
       expect(
           (await auth.login(
+                  workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                      defaultValue: 'test-company'),
                   email: 'mobile-employee@example.test',
                   password: 'Updated-test-password-2026'))
               .isRight(),

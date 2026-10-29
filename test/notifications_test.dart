@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:hrmobile/src/data/models/employee_notification.dart';
-import 'package:hrmobile/src/data/repositories/notifications_repository.dart';
-import 'package:hrmobile/src/services/notifications_service.dart';
-import 'package:hrmobile/src/ui/notifications/notifications_provider.dart';
-import 'package:hrmobile/src/utils/utils.dart';
+import 'package:hodour/src/data/models/employee_notification.dart';
+import 'package:hodour/src/data/repositories/notifications_repository.dart';
+import 'package:hodour/src/services/notifications_service.dart';
+import 'package:hodour/src/ui/notifications/notifications_provider.dart';
+import 'package:hodour/src/utils/utils.dart';
 import 'auth_session_test.dart' show TestAdapter, jsonResponse;
 
 Map<String, dynamic> notificationJson(

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/imports/imports.dart';
-import 'package:hrmobile/src/data/models/employee_request.dart';
-import 'package:hrmobile/src/services/sales_service.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_provider.dart';
-import 'package:hrmobile/src/ui/requests/requests_provider.dart';
-import 'package:hrmobile/src/ui/sales/sales_provider.dart';
+import 'package:hodour/src/imports/imports.dart';
+import 'package:hodour/src/data/models/employee_request.dart';
+import 'package:hodour/src/services/sales_service.dart';
+import 'package:hodour/src/ui/attendance/attendance_provider.dart';
+import 'package:hodour/src/ui/requests/requests_provider.dart';
+import 'package:hodour/src/ui/sales/sales_provider.dart';
 import 'attendance_test.dart'
     show FakeCapture, FakeRepository, snapshot, recordJson;
 import 'requests_test.dart' show FakeRequests, requestJson;

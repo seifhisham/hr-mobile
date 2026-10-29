@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:hrmobile/src/imports/imports.dart';
-import 'package:hrmobile/src/services/attendance_location_warning.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_monitor_provider.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_monitoring.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_provider.dart';
-import 'package:hrmobile/src/data/models/attendance_location.dart';
+import 'package:hodour/src/imports/imports.dart';
+import 'package:hodour/src/services/attendance_location_warning.dart';
+import 'package:hodour/src/ui/attendance/attendance_monitor_provider.dart';
+import 'package:hodour/src/ui/attendance/attendance_monitoring.dart';
+import 'package:hodour/src/ui/attendance/attendance_provider.dart';
+import 'package:hodour/src/data/models/attendance_location.dart';
 import 'attendance_location_test.dart'
     show LocationSource, LocationApi, monitored;
 import 'attendance_test.dart' show FakeCapture, FakeRepository;

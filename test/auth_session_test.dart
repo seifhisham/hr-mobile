@@ -4,10 +4,10 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/data/repositories/auth_repository_impl.dart';
-import 'package:hrmobile/src/services/auth_service.dart';
-import 'package:hrmobile/src/ui/auth/providers/session_provider.dart';
-import 'package:hrmobile/src/utils/failure.dart';
+import 'package:hodour/src/data/repositories/auth_repository_impl.dart';
+import 'package:hodour/src/services/auth_service.dart';
+import 'package:hodour/src/ui/auth/providers/session_provider.dart';
+import 'package:hodour/src/utils/failure.dart';
 
 class TestAdapter implements HttpClientAdapter {
   TestAdapter(this.respond);
@@ -107,7 +107,10 @@ void main() {
 
   Future<void> login() async {
     final result = await auth.login(
-        email: ' Employee@Example.Test ', password: ' password with spaces ');
+        workspace: const String.fromEnvironment('TEST_WORKSPACE',
+            defaultValue: 'test-company'),
+        email: ' Employee@Example.Test ',
+        password: ' password with spaces ');
     expect(result.isRight(), isTrue);
   }
 
@@ -120,6 +123,7 @@ void main() {
     await login();
     expect(await savedToken(), 'opaque-test-token');
     expect(requests.first.data, {
+      'workspace': 'test-company',
       'email': 'employee@example.test',
       'password': ' password with spaces '
     });
@@ -163,16 +167,21 @@ void main() {
     expect(session.state, isA<SessionAuthenticated>());
   });
   test(
-      'protected 401 clears secure token and session; login 401 does not clear an existing session',
+      'changing account clears the old token even when new credentials are rejected',
       () async {
     await login();
     mode = 'invalid-login';
     expect(
         (await auth.login(
-                email: 'employee@example.test', password: 'incorrect'))
+                workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                    defaultValue: 'test-company'),
+                email: 'employee@example.test',
+                password: 'incorrect'))
             .isLeft(),
         isTrue);
-    expect(await savedToken(), 'opaque-test-token');
+    expect(await savedToken(), isNull);
+    mode = 'ok';
+    await login();
     mode = 'expired';
     final signedOut = auth.authStateChanges.first;
     final result = await auth.getCurrentUser();
@@ -257,8 +266,11 @@ void main() {
       '429 is surfaced without automatic retry; NestJS arrays become readable messages',
       () async {
     mode = 'lockout';
-    final result =
-        await auth.login(email: 'employee@example.test', password: 'incorrect');
+    final result = await auth.login(
+        workspace: const String.fromEnvironment('TEST_WORKSPACE',
+            defaultValue: 'test-company'),
+        email: 'employee@example.test',
+        password: 'incorrect');
     expect(requests.length, 1);
     expect(
         result.fold(

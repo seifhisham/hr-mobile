@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:hrmobile/src/data/models/attendance_location.dart';
-import 'package:hrmobile/src/data/models/attendance_model.dart';
-import 'package:hrmobile/src/services/attendance_location_source.dart';
-import 'package:hrmobile/src/services/attendance_service.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_monitor_provider.dart';
-import 'package:hrmobile/src/utils/utils.dart';
+import 'package:hodour/src/data/models/attendance_location.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
+import 'package:hodour/src/services/attendance_location_source.dart';
+import 'package:hodour/src/services/attendance_service.dart';
+import 'package:hodour/src/ui/attendance/attendance_monitor_provider.dart';
+import 'package:hodour/src/utils/utils.dart';
 import 'attendance_test.dart' show policyJson, recordJson;
 import 'auth_session_test.dart' show TestAdapter, jsonResponse, schedules;
 
@@ -168,15 +168,15 @@ void main() {
     expect(payloads.last, {'available': false});
   });
 
-  test('off duty never captures or posts; older open record is the target',
-      () async {
+  test('off duty and earlier open records never capture or post', () async {
     monitor.sync(monitored(closed: true));
     await monitor.report();
     expect(api.calls, isEmpty);
     expect(source.captures, 0);
     monitor.sync(monitored(id: 'older-owned', date: '2026-10-04'));
     await monitor.report(fix: fix());
-    expect(api.calls.single.id, 'older-owned');
+    expect(api.calls, isEmpty);
+    expect(monitor.state.record, isNull);
   });
 
   test('requests serialize and busy fixes are dropped, not queued', () async {

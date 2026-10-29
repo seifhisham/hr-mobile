@@ -1,7 +1,7 @@
-import 'package:hrmobile/src/imports/imports.dart';
-import 'package:hrmobile/src/data/models/user_model.dart';
-import 'package:hrmobile/src/data/repositories/auth_repository.dart';
-import 'package:hrmobile/src/data/repositories/auth_repository_impl.dart';
+import 'package:hodour/src/imports/imports.dart';
+import 'package:hodour/src/data/models/user_model.dart';
+import 'package:hodour/src/data/repositories/auth_repository.dart';
+import 'package:hodour/src/data/repositories/auth_repository_impl.dart';
 
 sealed class SessionState {
   const SessionState();

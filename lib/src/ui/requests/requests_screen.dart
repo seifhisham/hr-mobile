@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../auth/providers/session_provider.dart';
 import '../../data/models/employee_request.dart';
 import 'requests_provider.dart';
@@ -136,13 +136,12 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           AppCard(
-                              color: context.colors.primaryContainer,
+                              color: context.appColors.homeBlue,
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Icon(Icons.description_rounded,
-                                        color:
-                                            context.colors.onPrimaryContainer,
+                                        color: context.appColors.onHomeBlue,
                                         size: AppSpacing.xl),
                                     SizedBox(height: AppSpacing.md),
                                     Semantics(
@@ -151,20 +150,23 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen>
                                             style: context
                                                 .textTheme.headlineMedium
                                                 ?.copyWith(
-                                                    color: context.colors
-                                                        .onPrimaryContainer))),
+                                                    color: context.appColors
+                                                        .onHomeBlue))),
                                     SizedBox(height: AppSpacing.xs),
                                     Text('design.requests_hint'.tr(),
                                         style: context.textTheme.bodyMedium
                                             ?.copyWith(
-                                                color: context.colors
-                                                    .onPrimaryContainer)),
+                                                color: context
+                                                    .appColors.onHomeBlue)),
                                     if (employee != null) ...[
                                       SizedBox(height: AppSpacing.lg),
                                       AppButton(
                                           label: 'requests.new'.tr(),
+                                          color: context
+                                              .colors.surfaceContainerLow,
+                                          textColor: context.colors.primary,
                                           prefixIcon: Icon(Icons.add_rounded,
-                                              color: context.colors.onPrimary),
+                                              color: context.colors.primary),
                                           onPressed: state.busy ||
                                                   state.pending != null
                                               ? null

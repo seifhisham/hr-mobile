@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
-import 'package:hrmobile/src/services/attendance_capture_service.dart';
+import 'package:hodour/src/services/attendance_capture_service.dart';
 
 // Historical helper only; native picker processing/network time is excluded.
 Uint8List _legacyPreparePhoto(Uint8List bytes) {

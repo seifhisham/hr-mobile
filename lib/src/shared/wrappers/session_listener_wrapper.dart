@@ -1,5 +1,5 @@
-import 'package:hrmobile/src/imports/imports.dart';
-import 'package:hrmobile/src/ui/auth/providers/session_provider.dart';
+import 'package:hodour/src/imports/imports.dart';
+import 'package:hodour/src/ui/auth/providers/session_provider.dart';
 
 class SessionListenerWrapper extends ConsumerStatefulWidget {
   const SessionListenerWrapper({super.key, required this.child});

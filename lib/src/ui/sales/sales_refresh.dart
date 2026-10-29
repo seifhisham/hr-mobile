@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../auth/providers/session_provider.dart';
 import 'sales_provider.dart';
 
@@ -33,9 +33,12 @@ class _SalesRefreshState extends ConsumerState<SalesRefresh>
   }
 
   Future<void> _refresh() async {
-    final owner = ref.read(sessionProvider).userOrNull?.id;
+    final owner = ref.read(sessionProvider).userOrNull?.sessionIdentity;
     await ref.read(salesAccessProvider.notifier).refresh();
-    if (!mounted || ref.read(sessionProvider).userOrNull?.id != owner) return;
+    if (!mounted ||
+        ref.read(sessionProvider).userOrNull?.sessionIdentity != owner) {
+      return;
+    }
     ref.read(salesListProvider(false).notifier).refresh();
     if (accessValue(ref.read(salesAccessProvider)).canReview) {
       ref.read(salesListProvider(true).notifier).refresh();

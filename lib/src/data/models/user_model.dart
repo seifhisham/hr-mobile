@@ -10,8 +10,13 @@ class AppUser extends Equatable {
       required this.companyName,
       required this.timezone,
       required this.today,
+      this.companyId,
+      this.workspace,
+      this.companyStatus,
       this.employee,
       this.schedule});
+  final String? companyId, workspace, companyStatus;
+  Object get sessionIdentity => (companyId, workspace, id, employee?.id);
   final String id;
   final String email;
   final String name;
@@ -27,6 +32,12 @@ class AppUser extends Equatable {
     final user = json['user'] as Map<String, dynamic>;
     final company = json['company'] as Map<String, dynamic>;
     return AppUser(
+        companyStatus: json['companyStatus'] as String?,
+        companyId: user['companyId'] as String? ??
+            json['companyId'] as String? ??
+            company['id'] as String?,
+        workspace:
+            company['workspace'] as String? ?? json['workspace'] as String?,
         id: _text(user, 'id'),
         email: _text(user, 'email'),
         name: _text(user, 'name'),
@@ -41,8 +52,20 @@ class AppUser extends Equatable {
         schedule: schedule);
   }
   @override
-  List<Object?> get props =>
-      [id, email, name, role, companyName, timezone, today, employee, schedule];
+  List<Object?> get props => [
+        companyId,
+        workspace,
+        companyStatus,
+        id,
+        email,
+        name,
+        role,
+        companyName,
+        timezone,
+        today,
+        employee,
+        schedule
+      ];
 }
 
 class EmployeeProfile extends Equatable {

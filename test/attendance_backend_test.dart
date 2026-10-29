@@ -4,10 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
-import 'package:hrmobile/src/data/models/attendance_model.dart';
-import 'package:hrmobile/src/services/attendance_service.dart';
-import 'package:hrmobile/src/services/attendance_capture_service.dart';
-import 'package:hrmobile/src/services/auth_service.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
+import 'package:hodour/src/services/attendance_service.dart';
+import 'package:hodour/src/services/attendance_capture_service.dart';
+import 'package:hodour/src/services/auth_service.dart';
 
 class _RealHttpOverrides extends HttpOverrides {}
 
@@ -29,6 +29,8 @@ void main() {
       });
       expect(
           (await auth.login(
+                  workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                      defaultValue: 'test-company'),
                   email: 'mobile-employee@example.test',
                   password: 'Isolated-employee-password-2026'))
               .isRight(),

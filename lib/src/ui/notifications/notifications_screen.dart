@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import '../../data/models/employee_notification.dart';
 import '../../data/models/employee_request.dart';
@@ -103,8 +103,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(
-        sessionProvider
-            .select((s) => (s.userOrNull?.id, s.userOrNull?.employee?.id)),
+        sessionProvider.select(
+            (s) => (s.userOrNull?.sessionIdentity, s.userOrNull?.employee?.id)),
         (previous, next) {
       setState(() => _opening = const RequestInitial());
     });
@@ -232,8 +232,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  (String?, String?) _identity() {
+  (Object?, String?) _identity() {
     final user = ref.read(sessionProvider).userOrNull;
-    return (user?.id, user?.employee?.id);
+    return (user?.sessionIdentity, user?.employee?.id);
   }
 }

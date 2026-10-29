@@ -1,10 +1,10 @@
-import 'package:hrmobile/src/imports/imports.dart';
-import 'package:hrmobile/src/ui/auth/providers/session_provider.dart';
-import 'package:hrmobile/src/ui/auth/session_screen.dart';
-import 'package:hrmobile/src/ui/account/account_screen.dart';
-import 'package:hrmobile/src/ui/account/change_password_screen.dart';
-import 'package:hrmobile/src/middleware/app_route_observer.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_screen.dart';
+import 'package:hodour/src/imports/imports.dart';
+import 'package:hodour/src/ui/auth/providers/session_provider.dart';
+import 'package:hodour/src/ui/auth/session_screen.dart';
+import 'package:hodour/src/ui/account/account_screen.dart';
+import 'package:hodour/src/ui/account/change_password_screen.dart';
+import 'package:hodour/src/middleware/app_route_observer.dart';
+import 'package:hodour/src/ui/attendance/attendance_screen.dart';
 import '../ui/requests/requests_screen.dart';
 import '../ui/requests/new_request_screen.dart';
 import '../ui/requests/request_details_screen.dart';

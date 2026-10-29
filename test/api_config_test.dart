@@ -1,11 +1,24 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/config/app_config.dart';
-import 'package:hrmobile/src/middleware/dio_logging_interceptor.dart';
+import 'package:hodour/src/config/app_config.dart';
+import 'package:hodour/src/middleware/dio_logging_interceptor.dart';
 import 'auth_session_test.dart' show TestAdapter, jsonResponse;
 
 void main() {
+  test('push validation errors never log tokens', () async {
+    final logs = <Object>[];
+    final client = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    client.interceptors.add(DioLoggingInterceptor(logPrint: logs.add));
+    client.httpClientAdapter = TestAdapter((_) =>
+        jsonResponse({'message': 'invalid token sensitive-push-token'}, 400));
+    await expectLater(
+        client.post<void>('/push/devices',
+            data: {'token': 'sensitive-push-token'}),
+        throwsA(isA<DioException>()));
+    expect(logs, isEmpty);
+    client.close();
+  });
   test('API prefix is added once and debug errors omit credentials', () async {
     for (final url in [
       'https://example.test',

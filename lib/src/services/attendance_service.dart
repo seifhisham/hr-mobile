@@ -4,6 +4,7 @@ import '../config/app_config.dart';
 import '../data/models/attendance_model.dart';
 import '../data/models/attendance_location.dart';
 import 'auth_service.dart';
+import 'requests_service.dart';
 import '../data/repositories/attendance_repository.dart';
 import '../utils/utils.dart';
 
@@ -32,8 +33,12 @@ class AttendanceService implements AttendanceRepository {
           _dio.get<Map<String, dynamic>>('/attendance/me'),
           _dio.get<Map<String, dynamic>>('/attendance/policy'),
         ]);
+        // /requests/me guarantees ownership; exhaust pagination before eligibility.
+        final requests = await RequestsService(client: _dio).load();
         return AttendanceSnapshot.fromJson(
-            responses[0].data!, AttendancePolicy.fromJson(responses[1].data!));
+            responses[0].data!, AttendancePolicy.fromJson(responses[1].data!),
+            requests:
+                requests.fold((failure) => throw failure, (items) => items));
       }, operation: 'attendance.load', category: LogCategory.network);
   @override
   FutureEither<AttendanceRecord> submit(AttendanceCapture capture,
@@ -67,6 +72,8 @@ class AttendanceService implements AttendanceRepository {
           // Only send the session token to the configured API origin.
           if (path.hasAuthority ||
               path.hasScheme ||
+              path.hasQuery ||
+              path.hasFragment ||
               !path.path.startsWith('/api/attendance/')) {
             throw const FormatException('Invalid evidence photo path');
           }

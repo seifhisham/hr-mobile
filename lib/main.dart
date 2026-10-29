@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'src/imports/core_imports.dart';
 import 'src/imports/packages_imports.dart';
 import 'src/app.dart';
+import 'src/services/push_notification_service.dart';
 
 Future<void> main() async {
   await runZonedGuarded(_bootstrap, (error, stackTrace) {
@@ -61,4 +62,7 @@ Future<void> _bootstrap() async {
   );
 
   AppLogger.success('Application started', category: LogCategory.app);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(PushNotificationService.instance.start());
+  });
 }

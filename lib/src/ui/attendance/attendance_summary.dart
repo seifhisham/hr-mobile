@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/attendance_model.dart';
@@ -108,6 +108,13 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
     final snapshot = state.snapshot;
     if (widget.homeStyle) return _homeSummary(context, state, snapshot);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (snapshot?.awaitingForgottenApproval ?? false)
+        Semantics(
+            liveRegion: true,
+            child: Text('attendance.forgotten_pending_check_in'.tr())),
+      if ((snapshot?.current?.branchName ?? snapshot?.policy.branchName)
+          case final branch?)
+        Text(branch, style: context.textTheme.titleSmall),
       if (state.noticeKey case final key?)
         Semantics(
             liveRegion: true,
@@ -123,8 +130,7 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(snapshot.workDate, style: context.textTheme.headlineSmall),
               SizedBox(height: AppSpacing.sm.h),
-              if (snapshot.olderOpen == null &&
-                  snapshot.current?.checkOut == null)
+              if (snapshot.canSubmit)
                 AppButton(
                     label: (snapshot.current == null
                             ? 'attendance.check_in'
@@ -160,7 +166,7 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
               ] else
                 Text('attendance.not_checked_in'.tr()),
               SizedBox(height: AppSpacing.md.h),
-              if (snapshot.olderOpen case final record?) ...[
+              if (snapshot.blockingOlderOpen case final record?) ...[
                 Text('attendance.older_open'
                     .tr(namedArgs: {'date': record.workDate})),
                 AppTextButton(
@@ -201,7 +207,7 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
       AttendanceSnapshot? snapshot) {
     final colors = context.colors;
     final current = snapshot?.current;
-    final olderOpen = snapshot?.olderOpen;
+    final olderOpen = current == null ? snapshot?.blockingOlderOpen : null;
     final canSubmit = snapshot?.canSubmit ?? false;
     final label = olderOpen != null
         ? 'requests.types.forgotten_check_out'
@@ -214,6 +220,13 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
             ? Icons.login_rounded
             : Icons.logout_rounded;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (snapshot?.awaitingForgottenApproval ?? false)
+        Semantics(
+            liveRegion: true,
+            child: Text('attendance.forgotten_pending_check_in'.tr())),
+      if ((snapshot?.current?.branchName ?? snapshot?.policy.branchName)
+          case final branch?)
+        Text(branch, style: context.textTheme.titleSmall),
       if (state.noticeKey case final key?)
         Semantics(liveRegion: true, child: Text(key.tr())),
       if (current case AttendanceRecord(checkOut: final checkOut?))
@@ -233,110 +246,109 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
                     child: _homeTime(context, 'attendance.check_out', checkOut,
                         current.timezone)),
               ]),
-              SizedBox(height: AppSpacing.sm),
+              SizedBox(height: AppSpacing.xs),
               Text(current.timezone,
                   style: context.textTheme.bodySmall
                       ?.copyWith(color: context.appColors.onSuccessContainer)),
-            ]))
-      else if (current != null)
-        AppCard(
-            child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(attendanceStatus(current.status),
-                style: context.textTheme.titleSmall),
-            SizedBox(height: AppSpacing.xs),
-            Text(
-                '${'attendance.check_in'.tr()}: ${attendanceTime(current.checkIn, current.timezone)}',
-                style: context.textTheme.bodyMedium),
-            Text(current.timezone,
-                style: context.textTheme.bodySmall
-                    ?.copyWith(color: colors.onSurfaceVariant)),
-          ],
-        )),
+            ])),
       if (state.data.isLoading && snapshot == null)
         const Center(child: CircularProgressIndicator()),
       if (state.data case RequestFailure(:final failure))
         Text(failure.message, style: TextStyle(color: colors.error)),
       if (canSubmit || olderOpen != null) ...[
-        SizedBox(height: AppSpacing.xl),
+        SizedBox(height: AppSpacing.sm),
         Center(
             child: _workProgress(
                 current,
                 olderOpen,
                 _actionRing(
-                    padding: AppSpacing.xl,
+                    padding: AppSpacing.ms,
                     name: 'attendance-outer-ring',
                     expansion: 0.12,
-                    color: colors.primaryContainer.withValues(alpha: 0.35),
+                    color: context.appColors.homeTrack.withValues(alpha: 0.25),
                     child: _actionRing(
-                        padding: AppSpacing.lg,
+                        padding: AppSpacing.ms,
                         name: 'attendance-inner-ring',
                         expansion: 0.06,
-                        color: colors.primaryContainer,
-                        child: Material(
-                            color: colors.primary,
-                            shape: const CircleBorder(),
-                            child: Semantics(
-                                label: label.tr(),
-                                button: true,
-                                enabled: !state.busy && state.pending == null,
-                                excludeSemantics: true,
-                                child: InkWell(
-                                    customBorder: const CircleBorder(),
-                                    onTapDown: state.busy ||
-                                            state.pending != null ||
-                                            olderOpen != null
-                                        ? null
-                                        : (_) => _repelRings(),
-                                    onTap: state.busy || state.pending != null
-                                        ? null
-                                        : olderOpen != null
-                                            ? () => context.pushNamed(
-                                                    'newRequest',
-                                                    queryParameters: {
-                                                      'attendanceId':
-                                                          olderOpen.id
-                                                    })
-                                            : () {
-                                                _repelRings();
-                                                ref
-                                                    .read(attendanceProvider
-                                                        .notifier)
-                                                    .submit();
-                                              },
-                                    child: SizedBox.square(
-                                        dimension: 136.w,
-                                        child: Center(
-                                            child: state.action.isLoading
-                                                ? CircularProgressIndicator(
-                                                    color: colors.onPrimary)
-                                                : Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                        Icon(icon,
-                                                            color: colors
-                                                                .onPrimary),
-                                                        SizedBox(
-                                                            height:
-                                                                AppSpacing.xs),
-                                                        Text(label.tr(),
-                                                            textAlign: TextAlign
-                                                                .center,
-                                                            maxLines: 2,
-                                                            style: context
-                                                                .textTheme
-                                                                .titleSmall
-                                                                ?.copyWith(
-                                                                    color: colors
-                                                                        .onPrimary)),
-                                                      ])))))))))),
-        SizedBox(height: AppSpacing.lg),
+                        color: context.appColors.homeTrack,
+                        child: DecoratedBox(
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colors.surfaceContainerLow),
+                            child: Padding(
+                                padding: EdgeInsets.all(AppSpacing.sm),
+                                child: Material(
+                                    color: context.appColors.homeBlue,
+                                    shape: const CircleBorder(),
+                                    child: Semantics(
+                                        label: label.tr(),
+                                        button: true,
+                                        enabled: !state.busy &&
+                                            state.pending == null,
+                                        excludeSemantics: true,
+                                        child: InkWell(
+                                            customBorder: const CircleBorder(),
+                                            onTapDown: state.busy ||
+                                                    state.pending != null ||
+                                                    olderOpen != null
+                                                ? null
+                                                : (_) => _repelRings(),
+                                            onTap: state.busy ||
+                                                    state.pending != null
+                                                ? null
+                                                : olderOpen != null
+                                                    ? () => context.pushNamed(
+                                                            'newRequest',
+                                                            queryParameters: {
+                                                              'attendanceId':
+                                                                  olderOpen.id
+                                                            })
+                                                    : () {
+                                                        _repelRings();
+                                                        ref
+                                                            .read(
+                                                                attendanceProvider
+                                                                    .notifier)
+                                                            .submit();
+                                                      },
+                                            child: SizedBox.square(
+                                                dimension: 120.w,
+                                                child: Center(
+                                                    child: state
+                                                            .action.isLoading
+                                                        ? CircularProgressIndicator(
+                                                            color: context
+                                                                .appColors
+                                                                .onHomeBlue)
+                                                        : Column(
+                                                            mainAxisSize:
+                                                                MainAxisSize.min,
+                                                            children: [
+                                                                Icon(icon,
+                                                                    color: context
+                                                                        .appColors
+                                                                        .onHomeBlue),
+                                                                SizedBox(
+                                                                    height:
+                                                                        AppSpacing
+                                                                            .xs),
+                                                                Text(label.tr(),
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center,
+                                                                    maxLines: 2,
+                                                                    style: context
+                                                                        .textTheme
+                                                                        .titleSmall
+                                                                        ?.copyWith(
+                                                                            color:
+                                                                                context.appColors.onHomeBlue)),
+                                                              ])))))))))))),
+        if (current == null) SizedBox(height: AppSpacing.lg),
         if (olderOpen != null)
           Text('attendance.older_open'
               .tr(namedArgs: {'date': olderOpen.workDate}))
-        else
+        else if (current == null)
           Text(
               'attendance.capture_explanation'.tr(namedArgs: {
                 'radius': snapshot!.policy.radiusMeters.toStringAsFixed(0),

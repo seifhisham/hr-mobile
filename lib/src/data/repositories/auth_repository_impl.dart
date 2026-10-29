@@ -11,8 +11,10 @@ class AuthRepositoryImpl implements AuthRepository {
   Stream<AppUser?> get onAuthStateChanged => _service.authStateChanges;
   @override
   FutureEither<AppUser> login(
-          {required String email, required String password}) =>
-      _service.login(email: email, password: password);
+          {required String workspace,
+          required String email,
+          required String password}) =>
+      _service.login(workspace: workspace, email: email, password: password);
   @override
   FutureEither<AppUser?> checkAuthState() => _service.getCurrentUser();
   @override

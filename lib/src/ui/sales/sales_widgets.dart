@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/sales_activity.dart';
 import '../requests/request_widgets.dart' show requestTime;
 import 'sales_provider.dart';

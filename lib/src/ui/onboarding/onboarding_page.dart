@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});

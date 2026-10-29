@@ -1,16 +1,18 @@
 import 'dart:async';
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../services/attendance_location_source.dart';
 import '../../services/attendance_location_warning.dart';
 import 'attendance_monitor_provider.dart';
 import 'attendance_provider.dart';
+import '../requests/requests_provider.dart';
 import 'attendance_summary.dart' show attendanceTime;
 import '../auth/providers/session_provider.dart';
 
 /// App-wide monitoring survives route changes; the server alone closes attendance.
 class AttendanceMonitoring extends ConsumerStatefulWidget {
-  const AttendanceMonitoring({super.key, required this.child});
+  const AttendanceMonitoring({super.key, required this.child, this.router});
   final Widget child;
+  final GoRouter? router;
   @override
   ConsumerState<AttendanceMonitoring> createState() =>
       _AttendanceMonitoringState();
@@ -28,11 +30,16 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
     super.initState();
     _warning = ref.read(attendanceLocationWarningProvider);
     WidgetsBinding.instance.addObserver(this);
+    widget.router?.routeInformationProvider.addListener(_routeChanged);
     // Remove any previous process's warning; launch reconciliation restores valid ones.
     unawaited(_warning.update(null));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _deadlineChanged(ref.read(attendanceMonitorProvider));
     });
+  }
+
+  void _routeChanged() {
+    if (mounted) setState(() {});
   }
 
   void _deadlineChanged(AttendanceMonitorState next) {
@@ -66,6 +73,7 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         ref.read(sessionProvider).userOrNull?.employee != null) {
+      ref.read(requestsProvider.notifier).refresh();
       ref.read(attendanceProvider.notifier).refresh().then((_) {
         if (mounted) ref.read(attendanceMonitorProvider.notifier).start();
       });
@@ -352,6 +360,7 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
     _deadlineTimer?.cancel();
     _clock?.cancel();
     unawaited(_warning.update(null));
+    widget.router?.routeInformationProvider.removeListener(_routeChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -378,157 +387,187 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
     final countdown =
         '${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}';
     final failure = monitor.failure;
-    return Column(children: [
-      IgnorePointer(
-          ignoring: _detailsOpen,
-          child: ExcludeSemantics(
-              excluding: _detailsOpen,
-              child: Container(
-                  color: context.colors.surface,
-                  foregroundDecoration: BoxDecoration(
-                      color: _detailsOpen
-                          ? context.colors.scrim.withValues(alpha: 0.54)
-                          : Colors.transparent),
-                  child: SafeArea(
-                      bottom: false,
-                      child: Material(
-                          color: deadline != null
-                              ? context.appColors.warningContainer
-                              : context.colors.surface,
-                          child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                  maxHeight: context.height * 0.4),
-                              child: SingleChildScrollView(
-                                  padding: EdgeInsets.fromLTRB(AppSpacing.lg,
-                                      AppSpacing.sm, AppSpacing.lg, 0),
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
+    final inline = widget.router?.routeInformationProvider.value.uri.path ==
+        AppRoutes.home;
+    final status = IgnorePointer(
+        ignoring: _detailsOpen,
+        child: ExcludeSemantics(
+            excluding: _detailsOpen,
+            child: Container(
+                color: context.colors.surface,
+                foregroundDecoration: BoxDecoration(
+                    color: _detailsOpen
+                        ? context.colors.scrim.withValues(alpha: 0.54)
+                        : Colors.transparent),
+                child: SafeArea(
+                    top: !inline,
+                    bottom: false,
+                    child: Material(
+                        color: deadline != null
+                            ? context.appColors.warningContainer
+                            : context.colors.surface,
+                        child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(maxHeight: context.height * 0.4),
+                            child: SingleChildScrollView(
+                                padding: EdgeInsets.fromLTRB(
+                                    inline ? AppSpacing.md : AppSpacing.lg,
+                                    AppSpacing.sm,
+                                    inline ? AppSpacing.md : AppSpacing.lg,
+                                    0),
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Semantics(
+                                          button: true,
+                                          child: AppCard(
+                                              color: context
+                                                  .colors.surfaceContainerLow,
+                                              onTap: _showDetails,
+                                              padding:
+                                                  EdgeInsets.all(AppSpacing.md),
+                                              child: Row(children: [
+                                                ExcludeSemantics(
+                                                    child: Container(
+                                                        padding: EdgeInsets.all(
+                                                            AppSpacing.ms),
+                                                        decoration: BoxDecoration(
+                                                            color: deadline != null
+                                                                ? context
+                                                                    .appColors
+                                                                    .warningContainer
+                                                                : context.colors
+                                                                    .primaryContainer,
+                                                            borderRadius:
+                                                                AppBorders.lg),
+                                                        child: Icon(
+                                                            deadline != null
+                                                                ? Icons
+                                                                    .location_off_outlined
+                                                                : Icons
+                                                                    .location_on_rounded,
+                                                            color: deadline != null
+                                                                ? context.appColors.onWarningContainer
+                                                                : context.colors.onPrimaryContainer))),
+                                                SizedBox(width: AppSpacing.md),
+                                                Expanded(
+                                                    child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                      Text(
+                                                          (monitor.location?.status ==
+                                                                          'inside' &&
+                                                                      failure ==
+                                                                          null
+                                                                  ? 'tracking.at_office'
+                                                                  : 'tracking.title')
+                                                              .tr(),
+                                                          style: context
+                                                              .textTheme
+                                                              .titleSmall
+                                                              ?.copyWith(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600)),
+                                                      SizedBox(
+                                                          height:
+                                                              AppSpacing.xs),
+                                                      Text(
+                                                          'tracking.details'
+                                                              .tr(),
+                                                          style: context
+                                                              .textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                  color: context
+                                                                      .colors
+                                                                      .primary)),
+                                                    ])),
+                                                SizedBox(width: AppSpacing.sm),
+                                                ExcludeSemantics(
+                                                    child: Icon(
+                                                        Directionality.of(
+                                                                    context) ==
+                                                                TextDirection
+                                                                    .rtl
+                                                            ? Icons
+                                                                .chevron_left_rounded
+                                                            : Icons
+                                                                .chevron_right_rounded,
+                                                        color: context.colors
+                                                            .onSurfaceVariant)),
+                                              ]))),
+                                      if (deadline != null ||
+                                          failure != null ||
+                                          monitor.location?.status ==
+                                              'unavailable' ||
+                                          monitor.policy == null)
+                                        SizedBox(height: AppSpacing.md),
+                                      if (deadline != null)
                                         Semantics(
-                                            button: true,
-                                            child: AppCard(
-                                                color: context
-                                                    .colors.surfaceContainerLow,
-                                                onTap: _showDetails,
-                                                padding: EdgeInsets.all(
-                                                    AppSpacing.md),
-                                                child: Row(children: [
-                                                  ExcludeSemantics(
-                                                      child: Container(
-                                                          padding: EdgeInsets.all(
-                                                              AppSpacing.ms),
-                                                          decoration: BoxDecoration(
-                                                              color: deadline != null
-                                                                  ? context
-                                                                      .appColors
-                                                                      .warningContainer
-                                                                  : context
-                                                                      .colors
-                                                                      .primaryContainer,
-                                                              borderRadius:
-                                                                  AppBorders
-                                                                      .lg),
-                                                          child: Icon(deadline != null ? Icons.location_off_outlined : Icons.location_on_rounded,
-                                                              color: deadline != null
-                                                                  ? context
-                                                                      .appColors
-                                                                      .onWarningContainer
-                                                                  : context
-                                                                      .colors
-                                                                      .onPrimaryContainer))),
-                                                  SizedBox(
-                                                      width: AppSpacing.md),
-                                                  Expanded(
-                                                      child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                        Text(
-                                                            (monitor.location?.status ==
-                                                                            'inside' &&
-                                                                        failure ==
-                                                                            null
-                                                                    ? 'tracking.at_office'
-                                                                    : 'tracking.title')
-                                                                .tr(),
-                                                            style: context
-                                                                .textTheme
-                                                                .titleSmall
-                                                                ?.copyWith(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600)),
-                                                        SizedBox(
-                                                            height:
-                                                                AppSpacing.xs),
-                                                        Text(
-                                                            'tracking.details'
-                                                                .tr(),
-                                                            style: context
-                                                                .textTheme
-                                                                .bodySmall
-                                                                ?.copyWith(
-                                                                    color: context
-                                                                        .colors
-                                                                        .primary)),
-                                                      ])),
-                                                  SizedBox(
-                                                      width: AppSpacing.sm),
-                                                  ExcludeSemantics(
-                                                      child: Icon(
-                                                          Directionality.of(
-                                                                      context) ==
-                                                                  TextDirection
-                                                                      .rtl
-                                                              ? Icons
-                                                                  .chevron_left_rounded
-                                                              : Icons
-                                                                  .chevron_right_rounded,
-                                                          color: context.colors
-                                                              .onSurfaceVariant)),
-                                                ]))),
-                                        if (deadline != null ||
-                                            failure != null ||
-                                            monitor.location?.status ==
-                                                'unavailable' ||
-                                            monitor.policy == null)
-                                          SizedBox(height: AppSpacing.md),
-                                        if (deadline != null)
-                                          Semantics(
-                                              liveRegion: true,
-                                              child: Text(
-                                                  '${'tracking.outside'.tr(namedArgs: {
-                                                        'time': attendanceTime(
-                                                            deadline,
-                                                            record.timezone)
-                                                      })} '
-                                                  '${seconds > 0 ? countdown : 'tracking.checking'.tr()}',
-                                                  style: context
-                                                      .textTheme.titleSmall)),
-                                        if (failure is NetworkFailure)
-                                          Text('tracking.connection'.tr(),
-                                              style: TextStyle(
-                                                  color: context.colors.error))
-                                        else if (failure != null &&
-                                            failure is! CaptureFailure)
-                                          Text('tracking.reporting_failed'.tr(),
-                                              style: TextStyle(
-                                                  color: context.colors.error)),
-                                        if (monitor.location?.status ==
-                                                'unavailable' ||
-                                            failure is CaptureFailure)
-                                          Text('tracking.unavailable'.tr()),
-                                        if (failure
-                                            case CaptureFailure(:final message))
-                                          Text(message.tr()),
-                                        if (monitor.policy == null)
-                                          Text('tracking.policy_missing'.tr()),
-                                      ])))))))),
-      Expanded(
-          child: MediaQuery.removePadding(
-              context: context, removeTop: true, child: widget.child)),
-    ]);
+                                            liveRegion: true,
+                                            child: Text(
+                                                '${'tracking.outside'.tr(namedArgs: {
+                                                      'time': attendanceTime(
+                                                          deadline,
+                                                          record.timezone)
+                                                    })} '
+                                                '${seconds > 0 ? countdown : 'tracking.checking'.tr()}',
+                                                style: context
+                                                    .textTheme.titleSmall)),
+                                      if (failure is NetworkFailure)
+                                        Text('tracking.connection'.tr(),
+                                            style: TextStyle(
+                                                color: context.colors.error))
+                                      else if (failure != null &&
+                                          failure is! CaptureFailure)
+                                        Text('tracking.reporting_failed'.tr(),
+                                            style: TextStyle(
+                                                color: context.colors.error)),
+                                      if (monitor.location?.status ==
+                                              'unavailable' ||
+                                          failure is CaptureFailure)
+                                        Text('tracking.unavailable'.tr()),
+                                      if (failure
+                                          case CaptureFailure(:final message))
+                                        Text(message.tr()),
+                                      if (monitor.policy == null)
+                                        Text('tracking.policy_missing'.tr()),
+                                    ]))))))));
+    return _AttendanceStatusScope(
+      status: status,
+      child: inline
+          ? widget.child
+          : Column(children: [
+              status,
+              Expanded(
+                  child: MediaQuery.removePadding(
+                      context: context, removeTop: true, child: widget.child)),
+            ]),
+    );
   }
+}
+
+/// The same live status panel, placed inside Home's scrollable content.
+class AttendanceLocationStatus extends StatelessWidget {
+  const AttendanceLocationStatus({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_AttendanceStatusScope>()
+          ?.status ??
+      const SizedBox.shrink();
+}
+
+class _AttendanceStatusScope extends InheritedWidget {
+  const _AttendanceStatusScope({required this.status, required super.child});
+  final Widget status;
+
+  @override
+  bool updateShouldNotify(_AttendanceStatusScope oldWidget) =>
+      status != oldWidget.status;
 }

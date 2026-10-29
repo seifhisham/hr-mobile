@@ -15,10 +15,19 @@ class VersionUpdateService {
   }) async {
     return runTask(
       () async {
-        return await AppVersionUpdate.checkForUpdates(
+        final result = await AppVersionUpdate.checkForUpdates(
           appleId: appleId,
           playStoreId: playStoreId,
-        );
+          country: dotenv.isInitialized
+              ? dotenv.get('APP_STORE_COUNTRY', fallback: 'us')
+              : 'us',
+        ).timeout(const Duration(seconds: 20));
+        if (result.canUpdate == null ||
+            result.storeVersion == null ||
+            Uri.tryParse(result.storeUrl ?? '')?.scheme != 'https') {
+          throw const FormatException('Invalid store update response');
+        }
+        return result;
       },
       operation: 'versionUpdate.checkForUpdate',
       category: LogCategory.app,

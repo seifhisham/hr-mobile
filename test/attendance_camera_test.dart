@@ -9,13 +9,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:hrmobile/src/data/models/user_model.dart';
-import 'package:hrmobile/src/data/repositories/auth_repository.dart';
-import 'package:hrmobile/src/shared/widgets/attendance_camera_dialog.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/actions/app_button.dart';
-import 'package:hrmobile/src/theme/theme.dart';
-import 'package:hrmobile/src/ui/auth/providers/session_provider.dart';
-import 'package:hrmobile/src/utils/utils.dart';
+import 'package:hodour/src/data/models/user_model.dart';
+import 'package:hodour/src/data/repositories/auth_repository.dart';
+import 'package:hodour/src/shared/widgets/attendance_camera_dialog.dart';
+import 'package:hodour/src/shared/widgets/ui/app/actions/app_button.dart';
+import 'package:hodour/src/theme/theme.dart';
+import 'package:hodour/src/ui/auth/providers/session_provider.dart';
+import 'package:hodour/src/utils/utils.dart';
 import 'auth_session_test.dart' show profile;
 
 class _Translations extends AssetLoader {
@@ -35,7 +35,9 @@ class _Auth extends AuthRepository {
   FutureEither<AppUser?> checkAuthState() async => right(user);
   @override
   FutureEither<AppUser> login(
-          {required String email, required String password}) async =>
+          {required String workspace,
+          required String email,
+          required String password}) async =>
       right(user);
   @override
   FutureEither<void> logout() async {

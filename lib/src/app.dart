@@ -1,9 +1,10 @@
-import 'package:hrmobile/src/imports/core_imports.dart';
+import 'package:hodour/src/imports/core_imports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/theme_mode_provider.dart';
 import 'ui/notifications/notification_refresh.dart';
 import 'ui/sales/sales_refresh.dart';
 import 'ui/attendance/attendance_monitoring.dart';
+import 'ui/update/update_gate.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -20,7 +21,7 @@ class App extends ConsumerWidget {
 
   Widget _buildMaterialApp(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'hrmobile',
+      onGenerateTitle: (context) => 'design.portal'.tr(context: context),
       debugShowCheckedModeBanner: false,
       theme: buildLightTheme(primaryColorHex: '#2457A7'),
       darkTheme: buildDarkTheme(primaryColorHex: '#2457A7'),
@@ -35,7 +36,12 @@ class App extends ConsumerWidget {
         current = SessionListenerWrapper(child: current);
         current = NotificationRefresh(child: current);
         current = SalesRefresh(child: current);
-        current = AttendanceMonitoring(child: current);
+        current = AttendanceMonitoring(
+            router: ref.watch(appRouterProvider), child: current);
+        // Keep disabled during store testing; enable once listings are public.
+        if (const bool.fromEnvironment('ENABLE_UPDATE_CHECK')) {
+          current = UpdateGate(child: current);
+        }
         final brightness = Theme.of(context).brightness;
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle(

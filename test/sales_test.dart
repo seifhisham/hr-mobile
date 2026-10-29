@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/utils/async_state.dart';
-import 'package:hrmobile/src/data/models/user_model.dart';
-import 'package:hrmobile/src/data/models/sales_activity.dart';
-import 'package:hrmobile/src/services/sales_service.dart';
-import 'package:hrmobile/src/ui/sales/sales_provider.dart';
-import 'package:hrmobile/src/middleware/dio_logging_interceptor.dart';
+import 'package:hodour/src/utils/async_state.dart';
+import 'package:hodour/src/data/models/user_model.dart';
+import 'package:hodour/src/data/models/sales_activity.dart';
+import 'package:hodour/src/services/sales_service.dart';
+import 'package:hodour/src/ui/sales/sales_provider.dart';
+import 'package:hodour/src/middleware/dio_logging_interceptor.dart';
 import 'auth_session_test.dart' show TestAdapter, jsonResponse, profile;
 
 const visit = SalesVisit(

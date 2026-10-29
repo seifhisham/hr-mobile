@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/employee_request.dart';
@@ -165,7 +165,8 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
   }
 
   Future<void> _submit() async {
-    final originalUserId = ref.read(sessionProvider).userOrNull?.id;
+    final originalUserId =
+        ref.read(sessionProvider).userOrNull?.sessionIdentity;
     if (_preparing.isLoading ||
         ref.read(requestsProvider).busy ||
         ref.read(requestsProvider).pending != null) {
@@ -183,7 +184,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
     if (!mounted) return;
     final session = ref.read(sessionProvider);
     final user = session.userOrNull;
-    if (user?.id != originalUserId || _createdId != null) {
+    if (user?.sessionIdentity != originalUserId || _createdId != null) {
       setState(() => _preparing = const RequestInitial());
       return;
     }
@@ -224,10 +225,14 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
       _preparing = const RequestLoading();
       _errorKey = null;
     });
-    final originalUserId = ref.read(sessionProvider).userOrNull?.id;
+    final originalUserId =
+        ref.read(sessionProvider).userOrNull?.sessionIdentity;
     final result = await ref.read(requestAttachmentServiceProvider).pick();
     if (!mounted) return;
-    if (ref.read(sessionProvider).userOrNull?.id != originalUserId) return;
+    if (ref.read(sessionProvider).userOrNull?.sessionIdentity !=
+        originalUserId) {
+      return;
+    }
     setState(() {
       _preparing = const RequestInitial();
       result.fold((_) => _errorKey = 'requests.attachment_invalid', (file) {
@@ -243,7 +248,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(sessionProvider.select((s) => s.userOrNull?.id),
+    ref.listen(sessionProvider.select((s) => s.userOrNull?.sessionIdentity),
         (previous, next) {
       if (previous == null || previous == next) return;
       setState(() {
@@ -296,7 +301,9 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
                                             })),
                                 SizedBox(height: AppSpacing.md.h),
                                 if (_type == 'forgotten-check-out') ...[
-                                  Text('requests.forgotten_notice'.tr()),
+                                  Text('requests.forgotten_notice'.tr(),
+                                      style: context.textTheme.bodyMedium),
+                                  SizedBox(height: AppSpacing.lg.h),
                                   if (attendance.data.isLoading)
                                     const Center(
                                         child: CircularProgressIndicator()),
@@ -324,33 +331,56 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
                                             _departureTime = null;
                                             _updateDeparture();
                                           })),
+                                  SizedBox(height: AppSpacing.md.h),
                                   if (record == null)
                                     Text('requests.open_record_required'.tr())
                                   else ...[
-                                    Text(
-                                        '${'attendance.check_in'.tr()}: ${requestTime(record.checkIn, record.timezone)}'),
-                                    Text('requests.timezone_notice'.tr(
-                                        namedArgs: {
-                                          'timezone': record.timezone
-                                        })),
-                                    AppDatePicker(
-                                        label: 'requests.departure_date'.tr(),
-                                        hint: 'requests.choose_date'.tr(),
-                                        value: _departureDate,
-                                        enabled: !_busy(state),
-                                        onChanged: (date) => setState(() {
-                                              _departureDate = date;
-                                              _updateDeparture();
-                                            })),
-                                    AppTimePicker(
-                                        label: 'requests.departure_time'.tr(),
-                                        value: _departureTime,
-                                        enabled: !_busy(state),
-                                        onChanged: (time) => setState(() {
-                                              _departureTime = time;
-                                              _updateDeparture();
-                                            })),
+                                    AppCard(
+                                      color: context.colors.surface,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text(
+                                              '${'attendance.check_in'.tr()}: ${requestTime(record.checkIn, record.timezone)}',
+                                              style:
+                                                  context.textTheme.titleSmall),
+                                          SizedBox(height: AppSpacing.sm.h),
+                                          Text(
+                                              'requests.timezone_notice'.tr(
+                                                  namedArgs: {
+                                                    'timezone': record.timezone
+                                                  }),
+                                              style: context.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                      color: context.colors
+                                                          .onSurfaceVariant)),
+                                          SizedBox(height: AppSpacing.lg.h),
+                                          AppDatePicker(
+                                              label: 'requests.departure_date'
+                                                  .tr(),
+                                              hint: 'requests.choose_date'.tr(),
+                                              value: _departureDate,
+                                              enabled: !_busy(state),
+                                              onChanged: (date) => setState(() {
+                                                    _departureDate = date;
+                                                    _updateDeparture();
+                                                  })),
+                                          SizedBox(height: AppSpacing.md.h),
+                                          AppTimePicker(
+                                              label: 'requests.departure_time'
+                                                  .tr(),
+                                              value: _departureTime,
+                                              enabled: !_busy(state),
+                                              onChanged: (time) => setState(() {
+                                                    _departureTime = time;
+                                                    _updateDeparture();
+                                                  })),
+                                        ],
+                                      ),
+                                    ),
                                     if (_instants.length > 1) ...[
+                                      SizedBox(height: AppSpacing.md.h),
                                       Text('requests.ambiguous_time'.tr()),
                                       AppDropdown<DateTime>(
                                           label:
@@ -369,21 +399,30 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
                                     ],
                                   ],
                                 ] else ...[
-                                  AppDatePicker(
-                                      label: 'requests.from'.tr(),
-                                      hint: 'requests.choose_date'.tr(),
-                                      value: _from,
-                                      enabled: !_busy(state),
-                                      onChanged: (date) =>
-                                          setState(() => _from = date)),
-                                  SizedBox(height: AppSpacing.md.h),
-                                  AppDatePicker(
-                                      label: 'requests.to'.tr(),
-                                      hint: 'requests.choose_date'.tr(),
-                                      value: _to,
-                                      enabled: !_busy(state),
-                                      onChanged: (date) =>
-                                          setState(() => _to = date)),
+                                  AppCard(
+                                    color: context.colors.surface,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        AppDatePicker(
+                                            label: 'requests.from'.tr(),
+                                            hint: 'requests.choose_date'.tr(),
+                                            value: _from,
+                                            enabled: !_busy(state),
+                                            onChanged: (date) =>
+                                                setState(() => _from = date)),
+                                        SizedBox(height: AppSpacing.md.h),
+                                        AppDatePicker(
+                                            label: 'requests.to'.tr(),
+                                            hint: 'requests.choose_date'.tr(),
+                                            value: _to,
+                                            enabled: !_busy(state),
+                                            onChanged: (date) =>
+                                                setState(() => _to = date)),
+                                      ],
+                                    ),
+                                  ),
                                   if (_type == 'excuse') ...[
                                     SizedBox(height: AppSpacing.md.h),
                                     Text(user!.schedule == null

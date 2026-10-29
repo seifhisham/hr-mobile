@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 /// Access via `context.appColors` (defined in `context_extension.dart`).
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   const AppColorsExtension({
+    required this.homeBlue,
+    required this.onHomeBlue,
+    required this.homeProgress,
+    required this.homeTrack,
     required this.success,
     required this.onSuccess,
     required this.warning,
@@ -18,6 +22,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     this.onInfoContainer,
   });
 
+  final Color homeBlue, onHomeBlue, homeProgress, homeTrack;
   final Color success;
   final Color onSuccess;
   final Color warning;
@@ -33,6 +38,10 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
 
   @override
   ThemeExtension<AppColorsExtension> copyWith({
+    Color? homeBlue,
+    Color? onHomeBlue,
+    Color? homeProgress,
+    Color? homeTrack,
     Color? success,
     Color? onSuccess,
     Color? warning,
@@ -47,6 +56,10 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     Color? onInfoContainer,
   }) {
     return AppColorsExtension(
+      homeBlue: homeBlue ?? this.homeBlue,
+      onHomeBlue: onHomeBlue ?? this.onHomeBlue,
+      homeProgress: homeProgress ?? this.homeProgress,
+      homeTrack: homeTrack ?? this.homeTrack,
       success: success ?? this.success,
       onSuccess: onSuccess ?? this.onSuccess,
       warning: warning ?? this.warning,
@@ -71,6 +84,10 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       return this;
     }
     return AppColorsExtension(
+      homeBlue: Color.lerp(homeBlue, other.homeBlue, t)!,
+      onHomeBlue: Color.lerp(onHomeBlue, other.onHomeBlue, t)!,
+      homeProgress: Color.lerp(homeProgress, other.homeProgress, t)!,
+      homeTrack: Color.lerp(homeTrack, other.homeTrack, t)!,
       success: Color.lerp(success, other.success, t)!,
       onSuccess: Color.lerp(onSuccess, other.onSuccess, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
@@ -87,13 +104,17 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       onInfoContainer: Color.lerp(onInfoContainer, other.onInfoContainer, t),
     );
   }
-  }
+}
 
 /// Helper class to define the actual color palettes
 class AppPalettes {
   AppPalettes._();
 
   static const light = AppColorsExtension(
+    homeBlue: Color(0xFF0068DC),
+    onHomeBlue: Colors.white,
+    homeProgress: Color(0xFF0085FF),
+    homeTrack: Color(0xFFC8E7FF),
     success: Color(0xFF2E7D32),
     onSuccess: Colors.white,
     successContainer: Color(0xFFA5D6A7),
@@ -109,6 +130,10 @@ class AppPalettes {
   );
 
   static const dark = AppColorsExtension(
+    homeBlue: Color(0xFF164F91),
+    onHomeBlue: Colors.white,
+    homeProgress: Color(0xFF75BFFF),
+    homeTrack: Color(0xFF2A496B),
     success: Color(0xFF81C784),
     onSuccess: Color(0xFF003300),
     successContainer: Color(0xFF1B5E20),
@@ -122,7 +147,7 @@ class AppPalettes {
     infoContainer: Color(0xFF0277BD),
     onInfoContainer: Color(0xFFE1F5FE),
   );
-  }
+}
 
 /// Access semantic colors via `context.appColors` from `context_extension.dart`.
 /// Example: `context.appColors.success`

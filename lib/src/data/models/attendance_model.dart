@@ -1,11 +1,14 @@
 import 'package:equatable/equatable.dart';
 import 'dart:typed_data';
 import 'user_model.dart';
+import 'employee_request.dart';
 import 'attendance_location.dart';
 
 class AttendancePolicy extends Equatable {
   @override
   List<Object?> get props => [
+        branchId,
+        branchName,
         latitude,
         longitude,
         radiusMeters,
@@ -24,13 +27,18 @@ class AttendancePolicy extends Equatable {
       required this.maxCaptureAgeSeconds,
       required this.maxPhotoBytes,
       required this.photoFormats,
-      this.tracking});
+      this.tracking,
+      this.branchId,
+      this.branchName});
+  final String? branchId, branchName;
   final AttendanceTrackingPolicy? tracking;
   final double latitude, longitude, radiusMeters, maxAccuracyMeters;
   final int maxCaptureAgeSeconds, maxPhotoBytes;
   final List<String> photoFormats;
   factory AttendancePolicy.fromJson(Map<String, dynamic> json) =>
       AttendancePolicy(
+          branchId: json['branchId'] as String?,
+          branchName: json['branchName'] as String?,
           latitude: (json['latitude'] as num).toDouble(),
           longitude: (json['longitude'] as num).toDouble(),
           radiusMeters: (json['radiusMeters'] as num).toDouble(),
@@ -46,8 +54,18 @@ class AttendancePolicy extends Equatable {
 
 class AttendanceRecord extends Equatable {
   @override
-  List<Object?> get props =>
-      [id, workDate, timezone, checkIn, checkOut, schedule, status, location];
+  List<Object?> get props => [
+        id,
+        branchId,
+        branchName,
+        workDate,
+        timezone,
+        checkIn,
+        checkOut,
+        schedule,
+        status,
+        location
+      ];
 
   const AttendanceRecord(
       {required this.id,
@@ -56,8 +74,11 @@ class AttendanceRecord extends Equatable {
       required this.checkOut,
       required this.timezone,
       required this.schedule,
+      this.branchId,
+      this.branchName,
       this.status,
       this.location});
+  final String? branchId, branchName;
   final AttendanceLocation? location;
   final String id, workDate, timezone;
   final DateTime checkIn;
@@ -83,6 +104,8 @@ class AttendanceRecord extends Equatable {
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) =>
       AttendanceRecord(
+          branchId: json['branchId'] as String?,
+          branchName: json['branchName'] as String?,
           id: json['id'] as String,
           workDate: json['workDate'] as String,
           checkIn: DateTime.parse(json['checkIn'] as String),
@@ -101,30 +124,46 @@ class AttendanceRecord extends Equatable {
 
 class AttendanceSnapshot extends Equatable {
   @override
-  List<Object?> get props => [workDate, records, schedule, policy];
+  List<Object?> get props => [workDate, records, schedule, policy, requests];
 
   const AttendanceSnapshot(
       {required this.workDate,
       required this.records,
       required this.schedule,
-      required this.policy});
+      required this.policy,
+      this.requests = const []});
+  final List<EmployeeRequest> requests;
   final String workDate;
   final List<AttendanceRecord> records;
   final WorkSchedule schedule;
   final AttendancePolicy policy;
-  AttendanceRecord? get open =>
-      records.where((r) => r.checkOut == null).firstOrNull;
+  AttendanceRecord? get open => current?.checkOut == null ? current : null;
   AttendanceRecord? get current =>
       records.where((r) => r.workDate == workDate).firstOrNull;
   AttendanceRecord? get olderOpen => records
-      .where((r) => r.checkOut == null && r.workDate != workDate)
+      .where((r) => r.checkOut == null && r.workDate.compareTo(workDate) < 0)
+      .firstOrNull;
+  bool hasPendingForgottenCheckout(AttendanceRecord record) =>
+      requests.any((request) =>
+          request.type == 'forgotten-check-out' &&
+          request.attendanceId == record.id &&
+          request.status == 'pending');
+  AttendanceRecord? get blockingOlderOpen => records
+      .where((record) =>
+          record.checkOut == null &&
+          record.workDate.compareTo(workDate) < 0 &&
+          !hasPendingForgottenCheckout(record))
       .firstOrNull;
   bool get canSubmit =>
-      olderOpen == null && (current == null || current!.checkOut == null);
+      current != null ? current!.checkOut == null : blockingOlderOpen == null;
+  bool get awaitingForgottenApproval =>
+      current == null && olderOpen != null && canSubmit;
   factory AttendanceSnapshot.fromJson(
-          Map<String, dynamic> json, AttendancePolicy policy) =>
+          Map<String, dynamic> json, AttendancePolicy policy,
+          {List<EmployeeRequest> requests = const []}) =>
       AttendanceSnapshot(
           workDate: json['workDate'] as String,
+          requests: requests,
           records: (json['records'] as List)
               .map((r) => AttendanceRecord.fromJson(r as Map<String, dynamic>))
               .toList(),

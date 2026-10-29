@@ -1,23 +1,26 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/employee_request.dart';
 import '../../data/repositories/requests_repository.dart';
 import '../../services/requests_service.dart';
 import '../auth/providers/session_provider.dart';
+import '../attendance/attendance_provider.dart';
 
 final requestsRepositoryProvider =
     Provider<RequestsRepository>((ref) => RequestsService.instance);
 final requestsProvider =
     StateNotifierProvider<RequestsController, RequestsState>((ref) {
-  final identity = ref.watch(sessionProvider
-      .select((s) => (s.userOrNull?.id, s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select(
+      (s) => (s.userOrNull?.sessionIdentity, s.userOrNull?.employee?.id)));
   return RequestsController(ref.read(requestsRepositoryProvider),
-      enabled: identity.$2 != null);
+      enabled: identity.$2 != null,
+      onChanged: () =>
+          ref.read(attendanceProvider.notifier).refresh(afterMutation: true));
 });
 
 final managedRequestsProvider =
     StateNotifierProvider<RequestsController, RequestsState>((ref) {
-  final identity = ref.watch(sessionProvider
-      .select((s) => (s.userOrNull?.id, s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select(
+      (s) => (s.userOrNull?.sessionIdentity, s.userOrNull?.employee?.id)));
   return RequestsController(ref.read(requestsRepositoryProvider),
       enabled: identity.$2 != null, managed: true, employeeId: identity.$2);
 });
@@ -64,11 +67,15 @@ class RequestsState {
 
 class RequestsController extends StateNotifier<RequestsState> {
   RequestsController(this.repository,
-      {bool enabled = true, this.managed = false, this.employeeId})
+      {bool enabled = true,
+      this.managed = false,
+      this.employeeId,
+      this.onChanged})
       : super(const RequestsState()) {
     if (enabled) refresh();
   }
   final RequestsRepository repository;
+  final Future<void> Function()? onChanged;
   final bool managed;
   final String? employeeId;
   Future<void>? _refreshing;
@@ -78,7 +85,15 @@ class RequestsController extends StateNotifier<RequestsState> {
       return;
     }
     if (state.busy) return;
+    final wasLoaded = state.data.isSuccess;
+    final previousItems = state.items;
     await _refresh();
+    if (mounted &&
+        wasLoaded &&
+        state.data.isSuccess &&
+        !listEquals(previousItems, state.items)) {
+      await onChanged?.call();
+    }
   }
 
   Future<void> _refresh() async {
@@ -245,6 +260,7 @@ class RequestsController extends StateNotifier<RequestsState> {
             action: RequestSuccess(item),
             noticeKey: 'requests.saved'));
     await _refresh();
+    if (mounted) await onChanged?.call();
   }
 
   bool _uncertain(Failure failure) => switch (failure) {

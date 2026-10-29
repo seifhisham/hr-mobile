@@ -1,8 +1,10 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import 'notifications_provider.dart';
 
 class NotificationButton extends ConsumerWidget {
-  const NotificationButton({super.key});
+  const NotificationButton({super.key, this.color, this.dotBadge = false});
+  final Color? color;
+  final bool dotBadge;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (GoRouterState.of(context).name == 'notifications') {
@@ -15,6 +17,7 @@ class NotificationButton extends ConsumerWidget {
         ? 'notifications.title'.tr()
         : 'notifications.unread_count'.tr(namedArgs: {'count': '$count'});
     final button = AppIconButton(
+      color: color,
       tooltip: 'notifications.title'.tr(),
       icon: Icons.notifications_none_rounded,
       onPressed: () => context.pushNamed('notifications'),
@@ -26,7 +29,9 @@ class NotificationButton extends ConsumerWidget {
       onTap: () => context.pushNamed('notifications'),
       excludeSemantics: true,
       child: (count ?? 0) > 0
-          ? AppBadge(label: count! > 99 ? '99+' : '$count', child: button)
+          ? dotBadge
+              ? Badge(backgroundColor: context.colors.error, child: button)
+              : AppBadge(label: count! > 99 ? '99+' : '$count', child: button)
           : button,
     );
   }

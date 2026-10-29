@@ -4,13 +4,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
-import 'package:hrmobile/src/data/models/employee_request.dart';
-import 'package:hrmobile/src/utils/failure.dart';
-import 'package:hrmobile/src/data/models/attendance_model.dart';
-import 'package:hrmobile/src/services/auth_service.dart';
-import 'package:hrmobile/src/services/requests_service.dart';
-import 'package:hrmobile/src/services/attendance_service.dart';
-import 'package:hrmobile/src/services/notifications_service.dart';
+import 'package:hodour/src/data/models/employee_request.dart';
+import 'package:hodour/src/utils/failure.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
+import 'package:hodour/src/services/auth_service.dart';
+import 'package:hodour/src/services/requests_service.dart';
+import 'package:hodour/src/services/attendance_service.dart';
+import 'package:hodour/src/services/notifications_service.dart';
 
 class _RealHttpOverrides extends HttpOverrides {}
 
@@ -31,6 +31,8 @@ void main() {
         client.close(force: true);
       });
       final user = (await auth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-employee@example.test',
               password: 'Isolated-employee-password-2026'))
           .getOrElse((f) => throw f);
@@ -157,11 +159,13 @@ void main() {
       // HR/dashboard endpoints are used only in this isolated acceptance test.
       final admin = Dio(BaseOptions(baseUrl: base));
       addTearDown(() => admin.close(force: true));
-      final adminSession = await admin.post<Map<String, dynamic>>('/auth/login',
-          data: {
-            'email': 'admin@example.test',
-            'password': 'Isolated-admin-password-2026'
-          });
+      final adminSession =
+          await admin.post<Map<String, dynamic>>('/auth/login', data: {
+        'workspace': const String.fromEnvironment('TEST_WORKSPACE',
+            defaultValue: 'test-company'),
+        'email': 'admin@example.test',
+        'password': 'Isolated-admin-password-2026'
+      });
       admin.options.headers['Authorization'] =
           'Bearer ${adminSession.data!['token']}';
       final mission = (await service.submit(DateRangeRequest(
@@ -190,6 +194,8 @@ void main() {
       expect((await service.loadManaged()).getOrElse((f) => throw f), isEmpty);
       await auth.logout();
       (await auth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-employee@example.test',
               password: 'Isolated-employee-password-2026'))
           .getOrElse((f) => throw f);
@@ -247,6 +253,8 @@ void main() {
         managerClient.close(force: true);
       });
       final manager = (await managerAuth.login(
+              workspace: const String.fromEnvironment('TEST_WORKSPACE',
+                  defaultValue: 'test-company'),
               email: 'mobile-manager@example.test',
               password: 'Isolated-manager-password-2026'))
           .getOrElse((f) => throw f);

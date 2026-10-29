@@ -1,4 +1,5 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
+import '../../shared/widgets/app_logo.dart';
 import 'providers/auth_provider.dart';
 import '../../theme/theme_toggle_button.dart';
 
@@ -10,10 +11,12 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _form = GlobalKey<FormState>();
+  final _workspace = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
   @override
   void dispose() {
+    _workspace.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -21,9 +24,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _submit() {
     if (!(_form.currentState?.validate() ?? false)) return;
-    ref
-        .read(authControllerProvider.notifier)
-        .login(email: _email.text, password: _password.text);
+    ref.read(authControllerProvider.notifier).login(
+        workspace: _workspace.text,
+        email: _email.text,
+        password: _password.text);
   }
 
   String? _validateEmail(String? value) {
@@ -60,14 +64,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: ThemeToggleButton()),
                   Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: Container(
-                          padding: EdgeInsets.all(AppSpacing.lg),
-                          decoration: BoxDecoration(
-                              color: context.colors.primary,
-                              borderRadius: AppBorders.xl),
-                          child: Icon(Icons.spa_outlined,
-                              color: context.colors.onPrimary,
-                              size: AppSpacing.xxl))),
+                      child: AppLogo(size: AppSpacing.xxxl + AppSpacing.md)),
                   SizedBox(height: AppSpacing.xl),
                   Text('design.portal'.tr(),
                       style: context.textTheme.labelLarge
@@ -80,6 +77,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: context.textTheme.bodyLarge
                           ?.copyWith(color: context.colors.onSurfaceVariant)),
                   SizedBox(height: AppSpacing.xl.h),
+                  AppTextField(
+                      label: 'auth.company_code'.tr(),
+                      controller: _workspace,
+                      enabled: !state.isLoading,
+                      textInputAction: TextInputAction.next,
+                      validator: (value) => RegExp(r'^[a-z0-9][a-z0-9-]{1,62}$')
+                              .hasMatch(value?.trim().toLowerCase() ?? '')
+                          ? null
+                          : 'auth.company_code_invalid'.tr()),
+                  SizedBox(height: AppSpacing.md.h),
                   AppTextField(
                       label: 'auth.email'.tr(),
                       controller: _email,

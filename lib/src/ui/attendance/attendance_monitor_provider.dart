@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/attendance_location.dart';
 import '../../data/models/attendance_model.dart';
 import '../../services/attendance_location_source.dart';
@@ -16,8 +16,10 @@ final attendanceLocationServiceProvider =
     Provider((ref) => AttendanceService.instance);
 final attendanceMonitorProvider =
     StateNotifierProvider<AttendanceMonitor, AttendanceMonitorState>((ref) {
-  final identity = ref.watch(sessionProvider.select((s) =>
-      (userId: s.userOrNull?.id, employeeId: s.userOrNull?.employee?.id)));
+  final identity = ref.watch(sessionProvider.select((s) => (
+        userId: s.userOrNull?.sessionIdentity,
+        employeeId: s.userOrNull?.employee?.id
+      )));
   final monitor = AttendanceMonitor(ref.read(attendanceLocationSourceProvider),
       ref.read(attendanceLocationServiceProvider),
       reconcile: () => ref.read(attendanceProvider.notifier).refresh());

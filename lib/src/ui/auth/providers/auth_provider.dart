@@ -1,5 +1,5 @@
-import 'package:hrmobile/src/imports/imports.dart';
-import 'package:hrmobile/src/data/repositories/auth_repository.dart';
+import 'package:hodour/src/imports/imports.dart';
+import 'package:hodour/src/data/repositories/auth_repository.dart';
 import 'session_provider.dart';
 
 final authControllerProvider =
@@ -12,10 +12,14 @@ class AuthController extends StateNotifier<RequestState<void>> {
         super(const RequestInitial());
   final AuthRepository _repository;
 
-  Future<void> login({required String email, required String password}) async {
+  Future<void> login(
+      {required String workspace,
+      required String email,
+      required String password}) async {
     if (state.isLoading) return;
     state = const RequestLoading();
-    final result = await _repository.login(email: email, password: password);
+    final result = await _repository.login(
+        workspace: workspace, email: email, password: password);
     if (mounted) {
       state =
           result.fold(RequestFailure.new, (_) => const RequestSuccess(null));

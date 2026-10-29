@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../theme/theme_toggle_button.dart';
 import '../notifications/notification_button.dart';
 import '../auth/providers/session_provider.dart';
@@ -61,7 +61,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       ]),
                       SizedBox(height: AppSpacing.lg),
                       AppCard(
-                          color: context.colors.primaryContainer,
+                          color: context.appColors.homeBlue,
                           padding: EdgeInsets.all(AppSpacing.lg),
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,14 +80,14 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 Text(user.name,
                                     style: context.textTheme.headlineSmall
                                         ?.copyWith(
-                                            color: context
-                                                .colors.onPrimaryContainer)),
+                                            color:
+                                                context.appColors.onHomeBlue)),
                                 SizedBox(height: AppSpacing.xs),
                                 Text(employee?.jobTitle ?? user.companyName,
                                     style: context.textTheme.bodyLarge
                                         ?.copyWith(
-                                            color: context
-                                                .colors.onPrimaryContainer)),
+                                            color:
+                                                context.appColors.onHomeBlue)),
                                 if (employee != null) ...[
                                   SizedBox(height: AppSpacing.md),
                                   Row(children: [
@@ -97,8 +97,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                             : Icons
                                                 .pause_circle_outline_rounded,
                                         size: AppSpacing.ml,
-                                        color:
-                                            context.colors.onPrimaryContainer),
+                                        color: context.appColors.onHomeBlue),
                                     SizedBox(width: AppSpacing.sm),
                                     Expanded(
                                         child: Text(
@@ -108,8 +107,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                                 .tr(),
                                             style: context.textTheme.labelLarge
                                                 ?.copyWith(
-                                                    color: context.colors
-                                                        .onPrimaryContainer))),
+                                                    color: context.appColors
+                                                        .onHomeBlue))),
                                   ]),
                                 ],
                               ])),
@@ -121,6 +120,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                               children: [
                                 _detail('auth.email', user.email),
                                 _detail('account.company', user.companyName),
+                                if (user.workspace case final workspace?)
+                                  _detail('auth.company_code', workspace),
                                 _detail('account.timezone', user.timezone),
                                 _detail('account.today', user.today),
                               ])),

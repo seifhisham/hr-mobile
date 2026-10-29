@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/attendance_model.dart';
 import '../../services/attendance_service.dart';
 import '../auth/providers/session_provider.dart';
@@ -10,7 +10,8 @@ final attendanceEvidenceProvider = StateNotifierProvider.autoDispose.family<
     AttendanceEvidenceController,
     RequestState<List<AttendanceEvidence>>,
     String>((ref, id) {
-  final userId = ref.watch(sessionProvider.select((s) => s.userOrNull?.id));
+  final userId =
+      ref.watch(sessionProvider.select((s) => s.userOrNull?.sessionIdentity));
   return AttendanceEvidenceController(
       ref.read(attendanceEvidenceServiceProvider), id,
       enabled: userId != null);
@@ -56,7 +57,9 @@ class AttendanceEvidenceDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(attendanceEvidenceProvider(record.id));
-    if (ref.watch(sessionProvider.select((s) => s.userOrNull?.id)) == null) {
+    if (ref.watch(
+            sessionProvider.select((s) => s.userOrNull?.sessionIdentity)) ==
+        null) {
       return const SizedBox.shrink();
     }
     return AlertDialog(

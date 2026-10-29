@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hrmobile/src/theme/theme.dart';
+import 'package:hodour/src/theme/theme.dart';
+import 'package:hodour/src/theme/color_schemes.dart';
 
 void main() {
   test('navy blue theme keeps text contrast in light and dark mode', () {
@@ -8,8 +10,23 @@ void main() {
       buildDarkTheme(primaryColorHex: '#2457A7'),
     ]) {
       final colors = theme.colorScheme;
+      final brand = theme.extension<AppColorsExtension>()!;
+      expect(theme.appBarTheme.backgroundColor, brand.homeBlue);
+      expect(theme.appBarTheme.foregroundColor, brand.onHomeBlue);
+      expect(theme.appBarTheme.titleTextStyle?.color, brand.onHomeBlue);
+      expect(colors.primaryContainer, brand.homeTrack);
+      expect(colors.secondaryContainer, brand.homeTrack);
+      expect(
+          colors.primary,
+          theme.brightness == Brightness.light
+              ? brand.homeBlue
+              : brand.homeProgress);
       for (final pair in [
         (colors.primary, colors.onPrimary),
+        (
+          theme.extension<AppColorsExtension>()!.homeBlue,
+          theme.extension<AppColorsExtension>()!.onHomeBlue
+        ),
         (colors.primaryContainer, colors.onPrimaryContainer),
         (colors.secondaryContainer, colors.onSecondaryContainer),
         (colors.surface, colors.onSurface),

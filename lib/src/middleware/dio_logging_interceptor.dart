@@ -15,6 +15,7 @@ class DioLoggingInterceptor extends PrettyDioLogger {
           // Error bodies may echo private attendance or sales values.
           filter: (options, _) =>
               !options.uri.pathSegments.contains('sales') &&
+              !options.uri.pathSegments.contains('push') &&
               !options.uri.pathSegments.contains('attendance'),
           logPrint: logPrint ?? ((message) => debugPrint(message.toString())),
         );

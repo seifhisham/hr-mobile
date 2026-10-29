@@ -5,9 +5,14 @@ import '../config/app_config.dart';
 import '../data/models/user_model.dart';
 import '../utils/utils.dart';
 import 'secure_storage_service.dart';
+import 'push_device_service.dart';
 
 class AuthService {
-  AuthService({Dio? client}) : _client = client;
+  AuthService({Dio? client, PushDeviceService? pushDevices})
+      : _client = client,
+        _pushDevices = pushDevices;
+  final PushDeviceService? _pushDevices;
+  PushDeviceService get _push => _pushDevices ?? PushDeviceService.instance;
   static final AuthService instance = AuthService();
   static const tokenKey = 'session_token';
   final Dio? _client;
@@ -16,6 +21,20 @@ class AuthService {
   final _changes = StreamController<AppUser?>.broadcast();
   String? _token;
   int _revision = 0;
+  Future<void> _storageWork = Future.value();
+
+  Future<void> _persist(FutureEither<void> Function() action) {
+    final work = _storageWork.then((_) async {
+      await action().then(_unwrap);
+    });
+    // The caller receives the failure; later cleanup must still run.
+    _storageWork = work.catchError((Object _) {
+      AppLogger.warning('Secure session storage operation failed',
+          category: LogCategory.auth);
+    });
+    return work;
+  }
+
   int get sessionRevision => _revision;
   Stream<AppUser?> get authStateChanges => _changes.stream;
 
@@ -39,9 +58,22 @@ class AuthService {
         }
         handler.next(options);
       },
+      onResponse: (response, handler) {
+        final revision = response.requestOptions.extra['sessionRevision'];
+        if (revision != null && revision != _revision) {
+          handler.reject(DioException(
+              requestOptions: response.requestOptions,
+              type: DioExceptionType.cancel,
+              message: 'Session changed'));
+          return;
+        }
+        handler.next(response);
+      },
       onError: (error, handler) async {
         final path = error.requestOptions.uri.path;
-        if (error.response?.statusCode == 401 &&
+        if ((error.response?.statusCode == 401 ||
+                error.response?.statusCode == 403 &&
+                    path.endsWith('/auth/me')) &&
             !path.endsWith('/auth/login') &&
             !path.endsWith('/auth/password') &&
             error.requestOptions.extra['sessionRevision'] == _revision) {
@@ -53,21 +85,52 @@ class AuthService {
                 category: LogCategory.auth);
           }
         }
+        if (error.response?.statusCode == 403 &&
+            !path.endsWith('/auth/login') &&
+            !path.endsWith('/auth/me') &&
+            error.requestOptions.extra['sessionRevision'] == _revision) {
+          // Permission failures alone do not imply expiry. /me checks access.
+          await runTask(() => _dio.get<Map<String, dynamic>>('/auth/me'),
+              operation: 'auth.validate', category: LogCategory.auth);
+        }
         handler.next(error);
       },
     ));
   }
 
   FutureEither<AppUser> login(
-          {required String email, required String password}) =>
+          {required String workspace,
+          required String email,
+          required String password}) =>
       runTask(() async {
+        final code = workspace.trim().toLowerCase();
+        if (!RegExp(r'^[a-z0-9][a-z0-9-]{1,62}$').hasMatch(code)) {
+          throw const ServerFailure(
+              'Enter a valid company code (2–63 lowercase letters, digits or hyphens).');
+        }
+        final clearing = _clearSession();
+        final revision = _revision;
+        await clearing;
+        if (revision != _revision) {
+          throw const ServerFailure('Session changed', statusCode: 401);
+        }
         final response = await _dio.post<Map<String, dynamic>>('/auth/login',
-            data: {'email': email.trim().toLowerCase(), 'password': password});
+            data: {
+              'workspace': code,
+              'email': email.trim().toLowerCase(),
+              'password': password
+            });
+        if (revision != _revision) {
+          throw const ServerFailure('Session changed', statusCode: 401);
+        }
         final token = response.data?['token'];
         if (token is! String || token.isEmpty) {
           throw const FormatException('Missing session token');
         }
-        await _storage.write(tokenKey, token).then(_unwrap);
+        await _persist(() => _storage.write(tokenKey, token));
+        if (revision != _revision) {
+          throw const ServerFailure('Session changed', statusCode: 401);
+        }
         _token = token;
         _revision++;
         final user = await _loadProfile();
@@ -78,6 +141,8 @@ class AuthService {
   FutureEither<AppUser?> getCurrentUser() => runTask(() async {
         final revision = _revision;
         if (_token == null) {
+          await _storageWork;
+          if (revision != _revision) return null;
           final saved = await _storage.read(tokenKey).then(_unwrap);
           if (revision != _revision) return null;
           _token = saved;
@@ -110,7 +175,9 @@ class AuthService {
     if (_token == null || revision != _revision) {
       throw const ServerFailure('Please sign in again.', statusCode: 401);
     }
-    return AppUser.fromJson(json, schedule: schedule);
+    final profile = AppUser.fromJson(json, schedule: schedule);
+    _push.sessionChanged(_revision, profile.sessionIdentity);
+    return profile;
   }
 
   FutureEither<void> changePassword(
@@ -133,6 +200,17 @@ class AuthService {
 
   FutureEither<void> logout() => runTask(() async {
         final token = _token;
+        final previousRevision = _revision;
+        if (token != null) {
+          try {
+            await _push
+                .unregister(previousRevision)
+                .timeout(const Duration(seconds: 5));
+          } on TimeoutException {
+            AppLogger.warning('Push unregister timed out');
+          }
+          if (previousRevision != _revision) return;
+        }
         // End local tracking/access before waiting for remote revocation.
         final clearing = _clearSession();
         final revision = _revision;
@@ -151,13 +229,17 @@ class AuthService {
       }, operation: 'auth.logout', category: LogCategory.auth);
 
   Future<void> _clearSession() async {
+    _push.sessionChanged(null);
     _token = null;
     _revision++;
     _changes.add(null);
-    await _storage.delete(tokenKey).then(_unwrap);
+    await _persist(() => _storage.delete(tokenKey));
   }
 
-  void dispose() => _changes.close();
+  void dispose() {
+    _push.sessionChanged(null);
+    _changes.close();
+  }
 }
 
 T _unwrap<T>(Either<Failure, T> result) =>

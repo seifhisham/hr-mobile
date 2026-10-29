@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/attendance_model.dart';
 
 /// Updates elapsed work locally; the saved check-in remains the source of truth.
@@ -57,21 +57,37 @@ class _AttendanceWorkProgressState extends State<AttendanceWorkProgress>
     ].map((part) => part.toString().padLeft(2, '0')).join(':');
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Stack(alignment: Alignment.center, children: [
-        Padding(padding: EdgeInsets.all(AppSpacing.sm), child: widget.child),
+        widget.child,
         Positioned.fill(
             child: IgnorePointer(
-                child: CircularProgressIndicator(
-          value: widget.record.progressAt(_now),
-          strokeWidth: AppSpacing.sm,
-          strokeCap: StrokeCap.round,
-          color: context.colors.primary,
-          backgroundColor: context.colors.primaryContainer,
-          semanticsLabel: 'attendance.elapsed'.tr(namedArgs: {'time': time}),
-        ))),
+                child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.ms),
+                    child: CircularProgressIndicator(
+                      value: widget.record.progressAt(_now),
+                      strokeWidth: AppSpacing.ms,
+                      strokeCap: StrokeCap.round,
+                      color: context.appColors.homeProgress,
+                      backgroundColor: context.appColors.homeTrack,
+                      semanticsLabel:
+                          'attendance.elapsed'.tr(namedArgs: {'time': time}),
+                    )))),
       ]),
-      SizedBox(height: AppSpacing.sm),
-      Text('attendance.elapsed'.tr(namedArgs: {'time': time}),
-          textAlign: TextAlign.center, style: context.textTheme.titleSmall),
+      SizedBox(height: AppSpacing.ms),
+      Text.rich(
+        TextSpan(children: [
+          TextSpan(
+              text: time,
+              style: context.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()])),
+          TextSpan(
+              text: ' ${'attendance.worked'.tr()}',
+              style: context.textTheme.bodyLarge
+                  ?.copyWith(color: context.colors.onSurfaceVariant)),
+        ]),
+        semanticsLabel: 'attendance.elapsed'.tr(namedArgs: {'time': time}),
+        textAlign: TextAlign.center,
+      ),
     ]);
   }
 }

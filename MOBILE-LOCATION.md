@@ -2,6 +2,8 @@
 
 Approved on 2026-10-12: monitor location while attendance is open, using a **150-metre radius from the office coordinates**. Missing location never forces checkout or creates a deduction. The Flutter project is developed separately and is not present in this workspace. Backend support alone does not enable phone tracking.
 
+Company Settings now controls the office coordinates, manual attendance radius, warning/automatic checkout radius, and time to return. The 150-metre boundary and 300-second grace period below are defaults. Always load `tracking.radiusMeters` and `tracking.graceSeconds` from the policy API; do not hard-code these values in warnings. Fresh location updates use the current radius. New warnings use the current grace period; existing persisted `returnBy` deadlines remain unchanged by settings edits.
+
 ## REST contract
 
 Use authenticated REST only. `GET /api/attendance/policy` now includes `tracking`:
@@ -18,7 +20,7 @@ Use authenticated REST only. `GET /api/attendance/policy` now includes `tracking
 }
 ```
 
-Office coordinates remain latitude 30.023092, longitude 31.528179. The existing top-level `radiusMeters: 50` still governs manual check-in/check-out with GPS and a photo; `tracking.radiusMeters: 150` governs departure monitoring. No photo is required for a location update or automatic checkout.
+Default office coordinates are latitude 30.023092, longitude 31.528179; use the current top-level latitude and longitude from the policy API. The existing top-level `radiusMeters: 50` still governs manual check-in/check-out with GPS and a photo; `tracking.radiusMeters: 150` governs departure monitoring. No photo is required for a location update or automatic checkout.
 
 `POST /api/attendance/:id/location` accepts JSON for the exact owned, open attendance record:
 
@@ -57,8 +59,8 @@ The server returns HTTP 201 and the location state:
 ## Rules and safety
 
 - The server requires fresh, increasing capture timestamps; future, stale, or repeated/out-of-order updates return 409. Invalid bodies return 400, unauthorized sessions 401, another employee's/missing record 404, and closed attendance 409.
-- Accuracy must be positive. Accuracy above 50 metres marks location unavailable. A reading is definitely outside only when `distance - accuracy > 150`; definitely inside when `distance + accuracy <= 150`. A reading whose accuracy overlaps the boundary marks location unavailable and cancels the countdown.
-- Two reliable outside readings, received at least 15 seconds apart, confirm departure. The second starts a five-minute return window. Subsequent reliable outside readings preserve the deadline. This five-minute duration and checkout-at-expiry are initial implementation defaults.
+- Accuracy must be positive. Accuracy above 50 metres marks location unavailable. A reading is definitely outside only when `distance - accuracy > tracking.radiusMeters`; definitely inside when `distance + accuracy <= tracking.radiusMeters`. A reading whose accuracy overlaps the boundary marks location unavailable and cancels the countdown.
+- Two reliable outside readings, received at least 15 seconds apart, confirm departure. The second starts a return window of `tracking.graceSeconds` seconds (default five minutes). Subsequent reliable outside readings preserve the deadline. This five-minute duration and checkout-at-expiry are initial implementation defaults.
 - Reliable return inside cancels the countdown. Explicit unavailability or more than 90 seconds without a fresh capture also cancels it, leaving attendance open. Recovery starts a new departure confirmation and full grace period; it never resumes an expired countdown.
 - A backend worker checks every ten seconds. Checkout is saved at the persisted deadline only if outside evidence is still fresh. Deadline and state survive restarts; an outage that leaves location stale cancels the countdown on recovery. A late worker runs only with fresh evidence. Each automatic checkout is audited once as `attendance.auto_checked_out`; no photo is fabricated and no payroll deduction is created.
 - Normal checkout and HR corrections clear active monitoring. The existing one-interval-per-workday rule remains: automatic checkout does not allow another check-in that day. HR can review/correct mistakes using the existing audited correction flow. Break/mission exemptions are not implemented.

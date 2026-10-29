@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../theme/theme_toggle_button.dart';
 import 'notifications/notification_button.dart';
 import 'auth/providers/session_provider.dart';
@@ -51,8 +51,11 @@ class EmployeeHeading extends StatelessWidget {
   final String title, subtitle;
   final IconData icon;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(bottom: AppSpacing.lg),
+  Widget build(BuildContext context) => Container(
+        margin: EdgeInsets.only(bottom: AppSpacing.lg),
+        padding: EdgeInsets.all(AppSpacing.ml),
+        decoration: BoxDecoration(
+            color: context.appColors.homeBlue, borderRadius: AppBorders.lg),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(
@@ -61,20 +64,26 @@ class EmployeeHeading extends StatelessWidget {
                     child: Container(
                       padding: EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                          color: context.colors.primaryContainer,
+                          color: context.appColors.homeTrack,
                           borderRadius: AppBorders.lg),
                       child:
                           Icon(icon, color: context.colors.onPrimaryContainer),
                     ))),
-            const ThemeToggleButton(),
-            const NotificationButton(),
+            ThemeToggleButton(color: context.appColors.onHomeBlue),
+            NotificationButton(
+                color: context.appColors.onHomeBlue, dotBadge: true),
           ]),
           SizedBox(height: AppSpacing.md),
-          Text(title, style: context.textTheme.headlineMedium),
+          Semantics(
+              header: true,
+              child: Text(title,
+                  style: context.textTheme.headlineMedium?.copyWith(
+                      color: context.appColors.onHomeBlue,
+                      fontWeight: FontWeight.w600))),
           SizedBox(height: AppSpacing.sm),
           Text(subtitle,
               style: context.textTheme.bodyMedium
-                  ?.copyWith(color: context.colors.onSurfaceVariant)),
+                  ?.copyWith(color: context.appColors.onHomeBlue)),
         ]),
       );
 }

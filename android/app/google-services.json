@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1087877373989",
+    "project_id": "wsc-hr-ebe11",
+    "storage_bucket": "wsc-hr-ebe11.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1087877373989:android:4ff937b7ecd7da58da9fcc",
+        "android_client_info": {
+          "package_name": "com.wsc.hodour"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5MMESAy_6U9Mqban9R1QlWvIb_d1ZbIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

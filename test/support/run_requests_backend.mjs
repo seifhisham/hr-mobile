@@ -20,7 +20,7 @@ async function api(path, method, body, token) {
   return response.json();
 }
 try {
-  const admin = await api('/auth/login', 'POST', { email: process.env.HR_ADMIN_EMAIL, password: process.env.HR_ADMIN_PASSWORD });
+  const admin = await api('/auth/login', 'POST', { workspace: process.env.TEST_WORKSPACE || 'test-company', email: process.env.HR_ADMIN_EMAIL, password: process.env.HR_ADMIN_PASSWORD });
   const [schedule] = await api('/schedules', 'GET', null, admin.token);
   await api('/employees', 'POST', { nationalId: '00123456789012', name: 'Isolated Mobile Employee',
     email: 'mobile-employee@example.test', department: 'Engineering', jobTitle: 'Test fixture',

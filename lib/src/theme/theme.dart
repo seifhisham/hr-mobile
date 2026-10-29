@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
 import 'text_theme.dart';
+import 'app_borders.dart';
 import 'color_schemes.dart';
 
 Color _colorFromHex(String hex) {
@@ -119,13 +120,15 @@ ThemeData _buildTheme(
 
     // App Bar Theme
     appBarTheme: AppBarTheme(
-      backgroundColor: colorScheme.surface,
-      foregroundColor: colorScheme.onSurface,
+      backgroundColor: customColors.homeBlue,
+      foregroundColor: customColors.onHomeBlue,
+      iconTheme: IconThemeData(color: customColors.onHomeBlue),
+      actionsIconTheme: IconThemeData(color: customColors.onHomeBlue),
       elevation: 0,
       centerTitle: false,
       titleTextStyle: textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.w600,
-        color: colorScheme.onSurface,
+        color: customColors.onHomeBlue,
       ),
     ),
 
@@ -136,7 +139,7 @@ ThemeData _buildTheme(
         foregroundColor: colorScheme.onPrimary,
         minimumSize: const Size(88, 48),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: const RoundedRectangleBorder(borderRadius: AppBorders.input),
         elevation: 0,
       ).copyWith(
         elevation: WidgetStateProperty.resolveWith((states) {
@@ -150,7 +153,7 @@ ThemeData _buildTheme(
       style: FilledButton.styleFrom(
         minimumSize: const Size(88, 48),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: const RoundedRectangleBorder(borderRadius: AppBorders.input),
       ),
     ),
 
@@ -158,7 +161,7 @@ ThemeData _buildTheme(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(88, 48),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: const RoundedRectangleBorder(borderRadius: AppBorders.input),
         side: BorderSide(color: colorScheme.outline, width: 1.5),
       ),
     ),
@@ -177,7 +180,7 @@ ThemeData _buildTheme(
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: colorScheme.outlineVariant, width: 1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppBorders.card,
       ),
       color: colorScheme.surfaceContainerLow,
     ),
@@ -187,19 +190,19 @@ ThemeData _buildTheme(
       filled: true,
       fillColor: colorScheme.surfaceContainerLow,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppBorders.input,
         borderSide: BorderSide(color: colorScheme.outline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppBorders.input,
         borderSide: BorderSide(color: colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppBorders.input,
         borderSide: BorderSide(color: colorScheme.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppBorders.input,
         borderSide: BorderSide(color: colorScheme.error),
       ),
       floatingLabelStyle: TextStyle(color: colorScheme.primary),
@@ -250,7 +253,7 @@ ThemeData _buildTheme(
     // Floating Action Button Theme
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: colorScheme.primary,
-      foregroundColor: colorScheme.onPrimaryContainer,
+      foregroundColor: colorScheme.onPrimary,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
@@ -267,7 +270,7 @@ ThemeData _buildTheme(
     // List Tile Theme
     listTileTheme: ListTileThemeData(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: const RoundedRectangleBorder(borderRadius: AppBorders.input),
       visualDensity: VisualDensity.comfortable,
       titleTextStyle:
           textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -297,7 +300,7 @@ ThemeData _buildTheme(
     // SnackBar Theme
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: const RoundedRectangleBorder(borderRadius: AppBorders.input),
       elevation: 4,
       backgroundColor: colorScheme.inverseSurface,
       contentTextStyle:
@@ -372,11 +375,11 @@ ThemeData buildLightTheme({required String primaryColorHex}) {
     seedColor: seed,
     brightness: Brightness.light,
   ).copyWith(
-      primary: const Color(0xFF2457A7),
+      primary: AppPalettes.light.homeBlue,
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFDBEAFE),
+      primaryContainer: AppPalettes.light.homeTrack,
       onPrimaryContainer: const Color(0xFF17263D),
-      secondaryContainer: const Color(0xFFDBEAFE),
+      secondaryContainer: AppPalettes.light.homeTrack,
       onSecondaryContainer: const Color(0xFF17263D),
       surface: const Color(0xFFF7F9FC),
       surfaceContainerLow: Colors.white,
@@ -393,6 +396,12 @@ ThemeData buildDarkTheme({required String primaryColorHex}) {
     seedColor: seed,
     brightness: Brightness.dark,
   ).copyWith(
+    primary: AppPalettes.dark.homeProgress,
+    onPrimary: const Color(0xFF002E5C),
+    primaryContainer: AppPalettes.dark.homeTrack,
+    onPrimaryContainer: const Color(0xFFE0F0FF),
+    secondaryContainer: AppPalettes.dark.homeTrack,
+    onSecondaryContainer: const Color(0xFFE0F0FF),
     surface: const Color(0xFF0F1724),
     surfaceContainerLow: const Color(0xFF17263D),
     inverseSurface: const Color(0xFF213451),

@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/employee_request.dart';
 import '../../services/request_attachment_service.dart';
@@ -169,7 +169,7 @@ class _RequestAttachmentButtonState
             (f) => RequestFailure(f), (_) => const RequestSuccess(null)));
       } else {
         final bytes = widget.attachment.decode();
-        final userId = ref.read(sessionProvider).userOrNull?.id;
+        final userId = ref.read(sessionProvider).userOrNull?.sessionIdentity;
         if (userId == null) return;
         await showDialog<void>(
             context: context,
@@ -205,7 +205,8 @@ class _AttachmentPreview extends ConsumerStatefulWidget {
   const _AttachmentPreview(
       {required this.bytes, required this.name, required this.userId});
   final Uint8List bytes;
-  final String name, userId;
+  final String name;
+  final Object userId;
   @override
   ConsumerState<_AttachmentPreview> createState() => _AttachmentPreviewState();
 }
@@ -219,14 +220,16 @@ class _AttachmentPreviewState extends ConsumerState<_AttachmentPreview> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(sessionProvider.select((s) => s.userOrNull?.id), (_, next) {
+    ref.listen(sessionProvider.select((s) => s.userOrNull?.sessionIdentity),
+        (_, next) {
       if (next != widget.userId &&
           mounted &&
           (ModalRoute.of(context)?.isCurrent ?? false)) {
         Navigator.of(context).pop();
       }
     });
-    if (ref.watch(sessionProvider.select((s) => s.userOrNull?.id)) !=
+    if (ref.watch(
+            sessionProvider.select((s) => s.userOrNull?.sessionIdentity)) !=
         widget.userId) {
       return const SizedBox.shrink();
     }

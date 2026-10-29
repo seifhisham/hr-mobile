@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/sales_activity.dart';
 import '../auth/providers/session_provider.dart';
 import 'sales_provider.dart';
@@ -27,14 +27,15 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
     ])
       key: TextEditingController()
   };
-  String _kind = 'meeting', _transaction = 'sale', _date = '', _owner = '';
+  String _kind = 'meeting', _transaction = 'sale', _date = '';
+  Object? _owner;
   String? _followUp, _validation;
   SalesActivity? _loaded;
   @override
   void initState() {
     super.initState();
     final user = ref.read(sessionProvider).userOrNull;
-    _owner = user?.id ?? '';
+    _owner = user?.sessionIdentity;
     _date = user?.today ?? '';
     _fields['currency']!.text = 'EGP';
     if (ref.read(salesMutationProvider).pending
@@ -115,7 +116,7 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     final user = ref.read(sessionProvider).userOrNull;
-    if (user?.id != _owner || user?.employee == null) return;
+    if (user?.sessionIdentity != _owner || user?.employee == null) return;
     final input = _input();
     final error =
         input.validate(startDate: user!.employee!.startDate, today: user.today);
@@ -128,7 +129,10 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
       await controller.create(input);
     }
     // A recovered POST can navigate with its confirmed ID, never with a guessed one.
-    if (!mounted || ref.read(sessionProvider).userOrNull?.id != _owner) return;
+    if (!mounted ||
+        ref.read(sessionProvider).userOrNull?.sessionIdentity != _owner) {
+      return;
+    }
     final action = ref.read(salesMutationProvider).action;
     if (action case RequestSuccess(:final data)) {
       context.replaceNamed('salesActivityDetails',
@@ -182,7 +186,8 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
     final mutation = ref.watch(salesMutationProvider);
     final detail =
         widget.id == null ? null : ref.watch(salesDetailProvider(widget.id!));
-    ref.listen(sessionProvider.select((s) => s.userOrNull?.id), (_, next) {
+    ref.listen(sessionProvider.select((s) => s.userOrNull?.sessionIdentity),
+        (_, next) {
       if (next != _owner) {
         for (final controller in _fields.values) {
           controller.clear();
@@ -192,14 +197,16 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
         _followUp = null;
       }
     });
-    if (user == null || user.id != _owner) return const SizedBox.shrink();
+    if (user == null || user.sessionIdentity != _owner) {
+      return const SizedBox.shrink();
+    }
     final item = detail?.value?.fold<SalesActivity?>((_) => null, (r) => r);
     // Fill once after a read; never replace unsaved input during a rebuild.
     if (item != null && _loaded == null && item.supported) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted &&
             _loaded == null &&
-            ref.read(sessionProvider).userOrNull?.id == _owner) {
+            ref.read(sessionProvider).userOrNull?.sessionIdentity == _owner) {
           setState(() => _load(item));
         }
       });

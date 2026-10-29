@@ -1,4 +1,4 @@
-# 🎉 Welcome to hrmobile!
+# 🎉 Welcome to Hodour!
 
 This project was generated dynamically based on your specific requirements. Before running your app for the first time, follow this brief setup guide to configure the required environment variables, permissions, and dependencies locally.
 
@@ -12,7 +12,7 @@ Skip this step if you generated the project with the FlutterInit CLI (`flutter c
 
 From the project root:
 ```bash
-flutter create . --project-name hrmobile --org com.wsc
+flutter create . --project-name hodour --org com.wsc
 ```
 
 This adds the platform folders without overwriting your generated Dart sources.
@@ -173,6 +173,54 @@ For the isolated authentication REST test, see the employee authentication secti
 
 ---
 
+## Android release signing and Google Play
+
+Release builds use the upload keystore referenced by the private, Git-ignored
+`android/key.properties`. Debug builds keep the normal Android debug key.
+Never commit or share `key.properties` or the keystore.
+
+On this workstation the upload key and a copy of its properties are in
+`C:\Users\Dark Energy\.android\hodour-signing\`. Back up both files together to
+a secure location outside this computer. The public certificate is exported to
+`output/release/hodour-upload-certificate.pem`; it contains no private key.
+
+Before public release, replace the temporary tunnel URL in `.env` with the
+permanent HTTPS backend, then rebuild. Bundled environment values are readable
+from the app; they must never contain credentials.
+
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+flutter build appbundle --release
+```
+
+The signed bundle is `build/app/outputs/bundle/release/app-release.aab`.
+If this Windows workstation reports `Unable to establish loopback connection`,
+use its existing short temporary directory for Java's local sockets before building:
+
+```powershell
+$env:JAVA_TOOL_OPTIONS = '-Djdk.net.unixdomain.tmpdir=C:/tmp'
+flutter build appbundle --release
+```
+
+Package ID: `com.wsc.hodour`. Initial version: `1.0.0+1` in `pubspec.yaml`.
+Increment the build number for every subsequent Play upload, for example
+`flutter build appbundle --release --build-number=2`.
+
+In Google Play Console, create/select Hodour, start with **Internal testing**,
+create a release, enroll in **Play App Signing** using Google's generated app
+signing key, and upload the signed `.aab`. Keep this local key as the upload key.
+Complete the store listing, privacy policy, Data safety, app access instructions
+and reviewer login, content rating, and the declarations for background location
+and foreground services as prompted. Use actual app/backend behavior for all
+answers. Public launch must wait for the permanent backend and device checks in
+[LOCATION-DEVICE-CHECKS.md](LOCATION-DEVICE-CHECKS.md).
+
+References: [Flutter Android release guide](https://docs.flutter.dev/deployment/android),
+[Play target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878),
+[background location declaration](https://support.google.com/googleplay/android-developer/answer/9799150).
+
 ## 8. 🚀 Running the App
 
 Once everything above is verified:
@@ -190,3 +238,51 @@ flutter run
 ```
 
 Congratulations, and happy coding!
+
+
+## Multi-company mobile sign-in
+
+Every login requires the company code provided by HR (`workspace`), email and password.
+No email-domain inference or default workspace is used. The shared client sends REST
+requests beneath one `/api` prefix. Use a phone-reachable LAN host (for example
+`http://192.168.1.10:3002/api`, with explicit backend LAN binding) or a forwarded
+HTTPS development URL; release builds require HTTPS and normal certificate validation.
+Do not put account passwords, tokens, or a default company in the bundled environment.
+
+Account changes clear local access before attempting the new login. Failed new
+credentials leave the previous account signed out. Protected 401 ends the session;
+403 from a business action checks `/auth/me`, retaining access if that check succeeds
+or has a network failure. Rejected `/auth/me` ends access. Password verification retains
+its separate 401 handling. Private attendance previews remain memory-only, never URL
+credentials or disk image caches. Request attachments remain inline authenticated JSON;
+PDF export is an explicit employee save action, outside transient preview retention.
+
+The backend must return company identity/workspace and the employee's assigned-branch
+policy. No branch selection, company switching UI, owner APIs, or offline attendance
+queue is added. Attendance records retain returned branch names, work dates, shift and
+timezone snapshots; policy is refreshed before each capture. The location monitor
+follows only the current workday's owned open interval. Older unresolved intervals use
+the existing forgotten-checkout workflow, not a new off-duty monitoring session.
+
+For disposable integration fixtures, pass `--dart-define=TEST_WORKSPACE=<fixture-code>`
+to Flutter backend tests. Fixture REST logins must also include that same workspace.
+The adjacent backend's current test fixture needs a disposable PostgreSQL cluster via
+`HR_PG_TEST_ADMIN_URL`; its older in-memory harnesses are not multi-company acceptance.
+See `LOCATION-DEVICE-CHECKS.md` for Android/iOS permissions, lifecycle limits and pilot.
+
+## Build on a Mac
+
+After pulling `main`, create the ignored local config with `cp .env.example .env`
+and set `API_BASE_URL=https://hr.wallstreetwsc.com/api`. Never copy server Firebase
+Admin keys into the app. Run `flutter pub get`, then `cd ios && pod install`.
+Open `Runner.xcworkspace` in Xcode and select your Apple development team/signing
+for `com.wsc.hodour`. The iOS deployment target is 15.0 to match the installed
+Firebase Core SDK. Build with Xcode, or return to the repository root and use
+`flutter build ios` once signing is configured. iOS push/APNs setup is still
+deferred; Android push configuration does not enable iOS notifications.
+
+## Android Firebase Cloud Messaging
+
+See [FCM-ANDROID.md](FCM-ANDROID.md) for Firebase Console device-token tests,
+foreground/background behavior, and the remaining backend integration. Android
+push is enabled independently of the deferred iOS/APNs setup.

@@ -1,4 +1,4 @@
-# hrmobile
+# Hodour
 
 Generated with the Flutter Scaffolding Wizard.
 
@@ -71,7 +71,7 @@ Default tests cover opaque notification IDs, read timestamps, removed alerts, la
 
 If you downloaded this project from the web wizard, create platform folders first (skip if you used the FlutterInit CLI):
 ```bash
-flutter create . --project-name hrmobile --org com.wsc
+flutter create . --project-name hodour --org com.wsc
 ```
 
 Then:

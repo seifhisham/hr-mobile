@@ -1,4 +1,4 @@
-import 'package:hrmobile/src/imports/imports.dart';
+import 'package:hodour/src/imports/imports.dart';
 import '../employee_navigation.dart';
 import 'attendance_provider.dart';
 import '../../data/models/attendance_model.dart';
@@ -120,6 +120,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                                             '${'attendance.check_in'.tr()}: ${attendanceTime(record.checkIn, record.timezone)}'),
                                         Text(
                                             '${'attendance.check_out'.tr()}: ${record.checkOut == null ? 'attendance.open'.tr() : attendanceTime(record.checkOut!, record.timezone)}'),
+                                        if (record.branchName case final name?)
+                                          Text(name),
                                         Text(record.timezone),
                                         if (record.checkOut == null)
                                           AppTextButton(

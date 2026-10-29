@@ -1,4 +1,4 @@
-# Design system — hrmobile
+# Design system — Hodour
 
 This file documents the shared design conventions. Consult it before changing UI code.
 
@@ -11,8 +11,8 @@ This file documents the shared design conventions. Consult it before changing UI
 - **Dark mode:** Light and dark themes are supported; app can follow system brightness. Use semantic colors — do not branch on brightness in widgets for basic surfaces.
 - **Customization:** Global `ThemeData` lives in `lib/src/theme/theme.dart` — avoid one-off `ThemeData` overrides in feature widgets.
 
-- **Light palette:** blue `#2457A7`, pale blue `#DBEAFE`, background `#F7F9FC`, and navy dock `#17263D`. Dark mode uses a navy canvas and lighter blue actions.
-- **Seed color:** `#2457A7` (used to derive `ColorScheme` via `ColorScheme.fromSeed` where applicable).
+- **Light palette:** blue `#0068DC`, pale blue `#C8E7FF`, background `#F7F9FC`, and navy dock `#17263D`. Dark mode uses a navy canvas and lighter blue actions.
+- **Seed color:** `#0068DC` (used to derive `ColorScheme` via `ColorScheme.fromSeed` where applicable).
 
 ---
 
@@ -35,7 +35,7 @@ This file documents the shared design conventions. Consult it before changing UI
 
 ## Spacing, borders, motion
 
-Import tokens via `package:hrmobile/src/theme/theme_constants.dart`.
+Import tokens via `package:hodour/src/theme/theme_constants.dart`.
 
 | Token class | Purpose |
 |-------------|---------|
@@ -180,3 +180,25 @@ For agent workflows and architecture boundaries, see **[AGENTS.md](AGENTS.md)**.
 - Button state transitions use the quick duration and stop animating when the platform requests reduced motion.
 - Keep English and Arabic layouts directional, scrollable and compatible with large text.
 - Run the workspace navigation widget test for regression checks. Optional screenshot export uses DESIGN_PREVIEWS and DESIGN_FONT_DIR; previews contain test fixtures only.
+
+### Home — Brand Signature
+
+- Company identity and employee greeting sit on a primary-color header; the attendance surface overlaps its lower edge.
+- Preserve the existing circular attendance action, ring animations, elapsed-work progress and raised-center navy dock.
+- Replace duplicate navigation shortcuts with Needs your attention: missing check-out corrections and department requests the employee can review, derived from existing attendance and managed-request providers.
+- Show all-clear only after both sources load successfully; failures offer retry. Refresh managed reviews with pull-to-refresh and foreground resume.
+- Keep the team-sales entry available for review-only accounts without an employee profile.
+
+
+### Home reference alignment
+
+Home uses dedicated `homeBlue`, `onHomeBlue`, `homeProgress` and `homeTrack`
+semantic colors with dark-mode variants. Shared actions and containers use this
+same blue family; section headers and detail app bars use `homeBlue` with
+`onHomeBlue` text and icons across the app.
+The blue header shows company identity, a company-timezone greeting, a localized
+server workDate, notification dot and an account avatar. The overlapping attendance
+surface pairs assigned shift times with current status, then a compact circular action
+and elapsed-work ring. The open record's saved shift/timezone remain authoritative.
+Theme selection remains on Account. Monitoring warnings and attention workflows remain
+available; they may add content beyond the reference's cropped hero.

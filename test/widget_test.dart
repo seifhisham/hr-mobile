@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
-import 'package:hrmobile/src/theme/theme_mode_provider.dart';
-import 'package:hrmobile/src/services/notifications_service.dart';
-import 'package:hrmobile/src/ui/notifications/notifications_provider.dart';
+import 'package:hodour/src/theme/theme_mode_provider.dart';
+import 'package:hodour/src/services/notifications_service.dart';
+import 'package:hodour/src/ui/notifications/notifications_provider.dart';
 import 'dart:convert';
 import 'package:image/image.dart' as image;
 import 'package:dio/dio.dart';
@@ -13,41 +13,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hrmobile/src/app.dart';
-import 'package:hrmobile/src/ui/notifications/notifications_screen.dart';
-import 'package:hrmobile/src/ui/requests/request_details_screen.dart';
-import 'package:hrmobile/src/ui/requests/request_widgets.dart';
-import 'package:hrmobile/src/ui/requests/new_request_screen.dart';
-import 'package:hrmobile/src/services/request_attachment_service.dart';
-import 'package:hrmobile/src/data/models/employee_request.dart';
-import 'package:hrmobile/src/ui/requests/department_reviews_screen.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/actions/app_button.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/display/app_card.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/navigation/app_bottom_nav_bar.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/actions/app_text_button.dart';
-import 'package:hrmobile/src/data/repositories/auth_repository_impl.dart';
-import 'package:hrmobile/src/services/auth_service.dart';
-import 'package:hrmobile/src/ui/auth/providers/session_provider.dart';
-import 'package:hrmobile/src/routing/app_router.dart';
-import 'package:hrmobile/src/services/attendance_service.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_provider.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_work_progress.dart';
-import 'package:hrmobile/src/ui/home/home_header.dart';
-import 'package:hrmobile/src/utils/utils.dart';
-import 'package:hrmobile/src/shared/widgets/toast/toast_card.dart';
+import 'package:hodour/src/app.dart';
+import 'package:hodour/src/services/push_notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hodour/src/ui/update/update_provider.dart';
+import 'package:app_version_update/data/models/app_version_result.dart';
+import 'package:fpdart/fpdart.dart' show Right;
+import 'package:hodour/src/ui/notifications/notifications_screen.dart';
+import 'package:hodour/src/ui/requests/request_details_screen.dart';
+import 'package:hodour/src/ui/requests/request_widgets.dart';
+import 'package:hodour/src/ui/requests/new_request_screen.dart';
+import 'package:hodour/src/services/request_attachment_service.dart';
+import 'package:hodour/src/data/models/employee_request.dart';
+import 'package:hodour/src/ui/requests/department_reviews_screen.dart';
+import 'package:hodour/src/shared/widgets/ui/app/actions/app_button.dart';
+import 'package:hodour/src/shared/widgets/ui/app/display/app_card.dart';
+import 'package:hodour/src/shared/widgets/ui/app/navigation/app_bottom_nav_bar.dart';
+import 'package:hodour/src/shared/widgets/ui/app/actions/app_text_button.dart';
+import 'package:hodour/src/data/repositories/auth_repository_impl.dart';
+import 'package:hodour/src/services/auth_service.dart';
+import 'package:hodour/src/ui/auth/providers/session_provider.dart';
+import 'package:hodour/src/routing/app_router.dart';
+import 'package:hodour/src/services/attendance_service.dart';
+import 'package:hodour/src/ui/attendance/attendance_provider.dart';
+import 'package:hodour/src/ui/attendance/attendance_work_progress.dart';
+import 'package:hodour/src/ui/attendance/attendance_monitoring.dart';
+import 'package:hodour/src/ui/home/home_header.dart';
+import 'package:hodour/src/shared/app_assets.dart';
+import 'package:hodour/src/utils/utils.dart';
+import 'package:hodour/src/shared/widgets/toast/toast_card.dart';
 import 'attendance_test.dart' show policyJson, recordJson, FakeCapture;
 import 'requests_test.dart' show requestJson;
 import 'notifications_test.dart' show notificationJson;
 import 'sales_test.dart' show salesJson, performanceJson;
-import 'package:hrmobile/src/ui/sales/sales_form_screen.dart';
-import 'package:hrmobile/src/ui/sales/sales_details_screen.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/inputs/app_dropdown.dart';
-import 'package:hrmobile/src/services/requests_service.dart';
-import 'package:hrmobile/src/ui/requests/requests_provider.dart';
-import 'package:hrmobile/src/services/sales_service.dart';
-import 'package:hrmobile/src/ui/sales/sales_provider.dart';
-import 'package:hrmobile/src/shared/widgets/ui/app/inputs/app_text_area.dart';
-import 'package:hrmobile/src/ui/attendance/attendance_evidence.dart';
+import 'package:hodour/src/ui/sales/sales_form_screen.dart';
+import 'package:hodour/src/ui/sales/sales_details_screen.dart';
+import 'package:hodour/src/shared/widgets/ui/app/inputs/app_dropdown.dart';
+import 'package:hodour/src/services/requests_service.dart';
+import 'package:hodour/src/ui/requests/requests_provider.dart';
+import 'package:hodour/src/services/sales_service.dart';
+import 'package:hodour/src/ui/sales/sales_provider.dart';
+import 'package:hodour/src/shared/widgets/ui/app/inputs/app_text_area.dart';
+import 'package:hodour/src/ui/attendance/attendance_evidence.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_session_test.dart'
@@ -89,6 +96,7 @@ void main() {
       bool removeNotificationOnRead = false,
       List<Map<String, dynamic>>? attendanceRecords,
       bool Function()? attendanceUnavailable,
+      bool Function()? managedUnavailable,
       FakeCapture? capture,
       RequestAttachmentService? attachmentPicker,
       void Function(RequestOptions)? onRequest,
@@ -214,6 +222,9 @@ void main() {
         return jsonResponse(managedRequests[index]);
       }
       if (request.path == '/requests/managed') {
+        if (managedUnavailable?.call() ?? false) {
+          return jsonResponse({'message': 'Reviews unavailable'}, 503);
+        }
         return jsonResponse(managedRequests);
       }
       if (offline) {
@@ -291,6 +302,8 @@ void main() {
       saveLocale: false,
       child: ProviderScope(
           overrides: [
+            updateCheckProvider.overrideWithValue(
+                () async => Right(AppVersionResult(canUpdate: false))),
             if (attachmentPicker != null)
               requestAttachmentServiceProvider
                   .overrideWithValue(attachmentPicker),
@@ -322,6 +335,41 @@ void main() {
     });
     return container;
   }
+
+  testWidgets('push tap opens authenticated inbox', (tester) async {
+    final container = await pumpApp(tester, savedSession: true);
+    PushNotificationService.instance.handleLocalResponse(
+        const NotificationResponse(
+            notificationResponseType:
+                NotificationResponseType.selectedNotification,
+            payload: 'fcm'));
+    await tester.pumpAndSettle();
+    expect(
+        container
+            .read(appRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        '/notifications');
+  });
+
+  testWidgets('cold push tap waits for session restoration', (tester) async {
+    PushNotificationService.instance.handleLocalResponse(
+        const NotificationResponse(
+            notificationResponseType:
+                NotificationResponseType.selectedNotification,
+            payload: 'fcm'));
+    final container = await pumpApp(tester, savedSession: true);
+    expect(
+        container
+            .read(appRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        '/notifications');
+  });
 
   testWidgets(
       'sales form switches schemas and submits completed work with company date',
@@ -553,7 +601,7 @@ void main() {
           {...notificationJson(), 'requestId': request['id']}
         ],
         onRequest: calls.add);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.bySemanticsLabel('1 unread notifications'), findsOneWidget);
     await tester.tap(find.byTooltip('Notifications'));
     await tester.pumpAndSettle();
     expect(find.text('Request approved'), findsOneWidget);
@@ -574,6 +622,15 @@ void main() {
         greaterThan(before));
     expect(find.byType(RequestDetailsScreen), findsOneWidget);
     expect(find.text('Request details'), findsWidgets);
+    expect(find.widgetWithText(AppButton, 'Refresh'), findsNothing);
+    final beforePull = calls.where((r) => r.path == '/requests/me').length;
+    final detailsScroll = find.descendant(
+        of: find.byType(RequestDetailsScreen),
+        matching: find.byType(SingleChildScrollView));
+    await tester.drag(detailsScroll, const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(calls.where((r) => r.path == '/requests/me').length,
+        greaterThan(beforePull));
     expect(tester.takeException(), isNull);
   });
 
@@ -633,7 +690,10 @@ void main() {
         'managerStage': 'pending',
         'managerEmployeeId': 'employee-a'
       };
-      await pumpApp(tester, savedSession: true, managedRequests: [
+      var managedReads = 0;
+      await pumpApp(tester, savedSession: true, onRequest: (r) {
+        if (r.path == '/requests/managed') managedReads++;
+      }, managedRequests: [
         request
       ], notifications: [
         {
@@ -647,6 +707,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('Department Colleague'), findsOneWidget);
+      expect(find.widgetWithText(AppButton, 'Refresh'), findsNothing);
+      final beforePull = managedReads;
+      await tester.drag(
+          find.descendant(
+              of: find.byType(RequestDetailsScreen),
+              matching: find.byType(SingleChildScrollView)),
+          const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(managedReads, greaterThan(beforePull));
       expect(find.text('Withdraw request'), findsNothing);
       final approval = find.text(status == 'approved'
           ? 'Recommend approval to HR'
@@ -793,6 +862,8 @@ void main() {
     final container = await pumpApp(tester, savedSession: true);
     expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
         ThemeMode.system);
+    container.read(appRouterProvider).goNamed('account');
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Switch to dark mode'));
     await tester.pumpAndSettle();
     expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
@@ -928,6 +999,7 @@ void main() {
     const previews = bool.fromEnvironment('DESIGN_PREVIEWS');
     const previewArabic = bool.fromEnvironment('DESIGN_ARABIC');
     const previewCompleted = bool.fromEnvironment('DESIGN_HOME_COMPLETE');
+    const previewActive = bool.fromEnvironment('DESIGN_HOME_ACTIVE');
     if (previews) {
       await tester.runAsync(() async {
         const fontDirectory = String.fromEnvironment('DESIGN_FONT_DIR');
@@ -958,7 +1030,19 @@ void main() {
     }
     final container = await pumpApp(tester,
         savedSession: true,
-        attendanceRecords: previews && !previewCompleted ? [] : null,
+        attendanceRecords: previewActive
+            ? [
+                {
+                  ...recordJson(),
+                  'checkIn': DateTime.now()
+                      .subtract(const Duration(hours: 3, minutes: 12))
+                      .toUtc()
+                      .toIso8601String()
+                }
+              ]
+            : previews && !previewCompleted
+                ? []
+                : null,
         locale: previewArabic ? const Locale('ar') : const Locale('en'),
         salesSubmit: previews,
         salesReview: previews,
@@ -973,19 +1057,21 @@ void main() {
               ]
             : [],
         notifications: previews ? [notificationJson()] : []);
-    for (final route in [
-      'home',
-      'attendance',
-      'requests',
-      'account',
-      'notifications',
-      'newRequest',
-      'sales',
-      'teamSales',
-      'newSalesActivity',
-      'changePassword',
-      'login'
-    ]) {
+    for (final route in previewActive
+        ? ['home']
+        : [
+            'home',
+            'attendance',
+            'requests',
+            'account',
+            'notifications',
+            'newRequest',
+            'sales',
+            'teamSales',
+            'newSalesActivity',
+            'changePassword',
+            'login'
+          ]) {
       if (route == 'login') {
         container.read(authRepositoryProvider).logout();
       } else {
@@ -994,6 +1080,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       if (previews) {
+        await tester.runAsync(() => precacheImage(
+            const AssetImage(AppAssets.logo),
+            tester.element(find.byType(App))));
+        await tester.pumpAndSettle();
         final boundary = tester.renderObject<RenderRepaintBoundary>(
             find.byKey(const ValueKey('design-preview')));
         await tester.runAsync(() async {
@@ -1005,6 +1095,24 @@ void main() {
           await File(
                   '${folder.path}/$route${previewArabic ? '-ar-dark' : ''}.png')
               .writeAsBytes(bytes!.buffer.asUint8List());
+          if (previewActive && route == 'home') {
+            final rect = tester.getRect(find.byType(HomeHeader));
+            final full = image.decodePng(bytes.buffer.asUint8List())!;
+            final hero = image.copyCrop(full,
+                x: (rect.left * 2).round(),
+                y: (rect.top * 2).round(),
+                width: (rect.width * 2).round(),
+                height: ((tester
+                                .getRect(find.byKey(
+                                    const ValueKey('home-attendance-card')))
+                                .bottom -
+                            rect.top +
+                            8) *
+                        2)
+                    .round());
+            await File('${folder.path}/home-reference.png')
+                .writeAsBytes(image.encodePng(hero));
+          }
           preview.dispose();
         });
       }
@@ -1032,12 +1140,13 @@ void main() {
       'login reaches profile; wrong current password retains form and session',
       (tester) async {
     final container = await pumpApp(tester);
+    await tester.enterText(find.byType(TextFormField).first, 'test-company');
     await tester.enterText(
-        find.byType(TextFormField).first, 'employee@example.test');
+        find.byType(TextFormField).at(1), 'employee@example.test');
     await tester.enterText(find.byType(TextFormField).last, 'password');
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
-    expect(find.text('Test Employee'), findsOneWidget);
+    expect(find.textContaining('Test'), findsWidgets);
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
     expect(find.text('00123456789012'), findsOneWidget);
@@ -1098,6 +1207,144 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+  testWidgets(
+      'Home attention replaces shortcuts and confirms loaded empty state',
+      (tester) async {
+    await pumpApp(tester, savedSession: true);
+    expect(find.text('Needs your attention'), findsOneWidget);
+    expect(
+        find.text('You’re all caught up. No actions needed.'), findsOneWidget);
+    expect(find.text('Your workspace'), findsNothing);
+    expect(find.text('Manage your requests'), findsNothing);
+    expect(find.byType(AppBottomNavBar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home attention shows only reviews assigned to this employee',
+      (tester) async {
+    await pumpApp(tester, savedSession: true, managedRequests: [
+      {
+        ...requestJson(id: 'review-a'),
+        'employeeId': 'other-employee',
+        'employeeName': 'Review Employee',
+        'managerEmployeeId': 'employee-a',
+        'managerStage': 'pending'
+      },
+      {
+        ...requestJson(id: 'review-b'),
+        'employeeId': 'another-employee',
+        'employeeName': 'Other Manager Employee',
+        'managerEmployeeId': 'other-manager',
+        'managerStage': 'pending'
+      },
+      {
+        ...requestJson(id: 'review-c', status: 'approved'),
+        'employeeId': 'third-employee',
+        'managerEmployeeId': 'employee-a',
+        'managerStage': 'approved'
+      },
+    ]);
+    expect(find.text('Review department request'), findsOneWidget);
+    expect(find.textContaining('Review Employee'), findsOneWidget);
+    expect(find.textContaining('Other Manager Employee'), findsNothing);
+    final target = find.text('Review department request');
+    await tester.ensureVisible(target);
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+    expect(find.byType(RequestDetailsScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Home attention retries failed review loading without false all-clear',
+      (tester) async {
+    var unavailable = true;
+    await pumpApp(tester,
+        savedSession: true, managedUnavailable: () => unavailable);
+    expect(find.text('Unable to check all actions. Please try again.'),
+        findsOneWidget);
+    expect(find.text('You’re all caught up. No actions needed.'), findsNothing);
+    unavailable = false;
+    final retry = find.text('Try again');
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    expect(
+        find.text('You’re all caught up. No actions needed.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home attention links missing checkout to the owned correction',
+      (tester) async {
+    await pumpApp(tester,
+        savedSession: true,
+        attendanceRecords: [recordJson(date: '2026-10-04')]);
+    final attention = find.text('Forgotten check-out').last;
+    await tester.ensureVisible(attention);
+    await tester.tap(attention);
+    await tester.pumpAndSettle();
+    final screen =
+        tester.widget<NewRequestScreen>(find.byType(NewRequestScreen));
+    expect(screen.attendanceId, recordJson()['id']);
+    expect(screen.initialType, 'forgotten-check-out');
+    expect(find.byType(NewRequestScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'reference Home shows one attendance surface and avatar opens account',
+      (tester) async {
+    await pumpApp(tester,
+        savedSession: true, attendanceRecords: [recordJson()]);
+    expect(find.text('Assigned shift'), findsOneWidget);
+    expect(find.textContaining('Checked in '), findsOneWidget);
+    expect(find.text('TE'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(HomeHeader), matching: find.byType(AppCard)),
+        findsOneWidget);
+    await tester.tap(find.descendant(
+        of: find.byType(HomeHeader), matching: find.byType(InkResponse)));
+    await tester.pumpAndSettle();
+    expect(find.text('EMP-000001'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Home location status follows attendance and precedes attention',
+      (tester) async {
+    final container = await pumpApp(tester,
+        savedSession: true, attendanceRecords: [recordJson()]);
+    final status = find.byType(AttendanceLocationStatus);
+    expect(status, findsOneWidget);
+    final attendanceRect =
+        tester.getRect(find.byKey(const ValueKey('home-attendance-card')));
+    final statusRect = tester
+        .getRect(find.descendant(of: status, matching: find.byType(AppCard)));
+    expect(statusRect.left, attendanceRect.left);
+    expect(statusRect.right, attendanceRect.right);
+    expect(tester.getTopLeft(find.byType(HomeHeader)).dy, lessThan(24));
+    expect(
+        tester.getTopLeft(status).dy,
+        greaterThan(tester
+            .getBottomLeft(find.byKey(const ValueKey('home-attendance-card')))
+            .dy));
+    expect(
+        tester.getBottomLeft(status).dy,
+        lessThanOrEqualTo(
+            tester.getTopLeft(find.text('Needs your attention')).dy));
+    await tester.ensureVisible(find.text('Location details'));
+    await tester.tap(find.text('Location details'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+    await tester.pumpAndSettle();
+    container.read(appRouterProvider).goNamed('attendance');
+    await tester.pumpAndSettle();
+    expect(find.byType(AttendanceLocationStatus), findsNothing);
+    expect(find.text('Location details'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Home startup loads attendance once', (tester) async {
     final paths = <String>[];
     await pumpApp(tester,
@@ -1121,7 +1368,7 @@ void main() {
           }
         ]);
     expect(find.byType(AttendanceWorkProgress), findsOneWidget);
-    expect(find.textContaining('مدة العمل: 04:00:'), findsOneWidget);
+    expect(find.textContaining('04:00:'), findsOneWidget);
     final ring = tester.widget<CircularProgressIndicator>(find.descendant(
         of: find.byType(AttendanceWorkProgress),
         matching: find.byType(CircularProgressIndicator)));
@@ -1138,22 +1385,22 @@ void main() {
     await pumpApp(tester, savedSession: true, attendanceRecords: [
       {...recordJson(closed: true), 'timezone': 'Asia/Dubai'}
     ]);
-    expect(find.text('2026-10-05'), findsOneWidget);
+    expect(find.text('Monday, 5 October'), findsOneWidget);
     expect(
         find.textContaining('Company calendar date: 2026-10-06'), findsNothing);
     expect(find.text('Checked out'), findsOneWidget);
     expect(find.text('02:00:00'), findsOneWidget);
     expect(find.text('08:00:00'), findsOneWidget);
     expect(find.text('Asia/Dubai'), findsOneWidget);
-    expect(find.text('EMP-000001'), findsOneWidget);
-    expect(
-        find.descendant(
-            of: find.byType(HomeHeader), matching: find.text('2026-10-05')),
-        findsOneWidget);
+    expect(find.text('EMP-000001'), findsNothing);
     expect(
         find.descendant(
             of: find.byType(HomeHeader),
-            matching: find.text('Night shift: 22:00 – 06:00')),
+            matching: find.text('Monday, 5 October')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(HomeHeader), matching: find.text('22:00 – 06:00')),
         findsOneWidget);
     expect(find.byIcon(Icons.login_rounded), findsNothing);
     expect(find.byIcon(Icons.logout_rounded), findsNothing);
@@ -1169,7 +1416,7 @@ void main() {
         capture: capture, onRequest: (request) {
       if (request.method == 'POST') paths.add(request.path);
     });
-    expect(find.text('Welcome back,'), findsOneWidget);
+    expect(find.textContaining('Test'), findsWidgets);
     expect(find.text('Not checked in'), findsOneWidget);
     expect(find.byIcon(Icons.login_rounded), findsOneWidget);
     expect(find.byType(AttendanceWorkProgress), findsNothing);
@@ -1180,7 +1427,7 @@ void main() {
     expect(find.text('Working'), findsOneWidget);
     expect(find.byIcon(Icons.logout_rounded), findsOneWidget);
     expect(find.byType(AttendanceWorkProgress), findsOneWidget);
-    expect(find.textContaining('Time worked:'), findsOneWidget);
+    expect(find.textContaining(' worked'), findsOneWidget);
     await tester.ensureVisible(find.text('Check out'));
     await tester.tap(find.text('Check out'));
     await tester.pumpAndSettle();
@@ -1298,13 +1545,46 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    final request = find.text('Forgotten check-out');
+    final request = find.text('Forgotten check-out').first;
     await tester.ensureVisible(request);
     await tester.tap(request);
     await tester.pumpAndSettle();
     expect(find.textContaining('2026-10-04'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets('pending forgotten checkout enables Home check-in in $locale',
+        (tester) async {
+      final container = await pumpApp(tester,
+          savedSession: true,
+          locale: locale,
+          attendanceRecords: [
+            recordJson(date: '2026-10-04')
+          ],
+          requests: [
+            {
+              ...requestJson(),
+              'type': 'forgotten-check-out',
+              'attendanceId': 'owned-record',
+              'managerStage': 'rejected'
+            }
+          ]);
+      await container.read(themeModeProvider.notifier).setDark(true);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      expect(find.text('attendance.forgotten_pending_check_in'.tr()),
+          findsOneWidget);
+      expect(find.text('attendance.check_in'.tr()), findsOneWidget);
+      expect(find.byType(AttendanceWorkProgress), findsNothing);
+      expect(tester.takeException(), isNull);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('attendance.check_in'.tr()), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('returning to Home does not reload attendance', (tester) async {
     var loads = 0;
     final container = await pumpApp(tester,
@@ -1357,8 +1637,8 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpAndSettle();
-    expect(find.text('2026-10-05'), findsOneWidget);
-    expect(find.textContaining('EMP-000001'), findsOneWidget);
+    expect(find.bySemanticsLabel('2026-10-05'), findsOneWidget);
+    expect(find.textContaining('EMP-000001'), findsNothing);
     expect(find.textContaining('تاريخ الشركة'), findsNothing);
     expect(tester.takeException(), isNull);
   });
