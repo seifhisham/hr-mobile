@@ -131,6 +131,7 @@
     "company_date": "تاريخ الشركة",
     "from": "من يوم العمل",
     "to": "إلى يوم العمل",
+    "filters": "تصفية السجلات",
     "status_filter": "الحالة",
     "all_statuses": "جميع الحالات",
     "clear_filters": "مسح التصفية",

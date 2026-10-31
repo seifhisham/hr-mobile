@@ -112,9 +112,6 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
         Semantics(
             liveRegion: true,
             child: Text('attendance.forgotten_pending_check_in'.tr())),
-      if ((snapshot?.current?.branchName ?? snapshot?.policy.branchName)
-          case final branch?)
-        Text(branch, style: context.textTheme.titleSmall),
       if (state.noticeKey case final key?)
         Semantics(
             liveRegion: true,
@@ -123,67 +120,93 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
         const Center(child: CircularProgressIndicator()),
       if (state.data case RequestFailure(:final failure))
         Text(failure.message, style: TextStyle(color: context.colors.error)),
+      if (state.pending != null || state.data is RequestFailure)
+        AppButton(
+            label: (state.pending != null
+                    ? 'attendance.reconcile'
+                    : 'attendance.refresh')
+                .tr(),
+            variant: ButtonVariant.outline,
+            onPressed: state.busy
+                ? null
+                : () => ref.read(attendanceProvider.notifier).refresh()),
       if (snapshot != null) ...[
         AppCard(
+            color: context.colors.surfaceContainerLow,
+            leading: Icon(Icons.today_rounded, color: context.colors.primary),
             title: 'attendance.workday'.tr(),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(snapshot.workDate, style: context.textTheme.headlineSmall),
-              SizedBox(height: AppSpacing.sm.h),
-              if (snapshot.canSubmit)
-                AppButton(
-                    label: (snapshot.current == null
-                            ? 'attendance.check_in'
-                            : 'attendance.check_out')
-                        .tr(),
-                    height: ButtonSize.large,
-                    isFullWidth: true,
-                    prefixIcon: Icon(
-                        snapshot.current == null
-                            ? Icons.login_rounded
-                            : Icons.logout_rounded,
-                        color: context.colors.onPrimary),
-                    isLoading: state.action.isLoading,
-                    onPressed: state.busy || state.pending != null
-                        ? null
-                        : () => ref.read(attendanceProvider.notifier).submit()),
-              SizedBox(height: AppSpacing.md.h),
-              Text(
-                  '${snapshot.schedule.name}: ${snapshot.schedule.start} – ${snapshot.schedule.end}'),
-              if (snapshot.current case final current?) ...[
-                Text(attendanceStatus(current.status)),
-                Text(
-                    '${'attendance.check_in'.tr()}: ${attendanceTime(current.checkIn, current.timezone)}'),
-                Text(
-                    '${'attendance.check_out'.tr()}: ${current.checkOut == null ? 'attendance.open'.tr() : attendanceTime(current.checkOut!, current.timezone)}'),
-                Text(current.timezone),
-                if (current.checkOut == null &&
-                    current.status == 'Missing check-out')
-                  AppTextButton(
-                      label: 'requests.types.forgotten_check_out'.tr(),
-                      onPressed: () => context.pushNamed('newRequest',
-                          queryParameters: {'attendanceId': current.id})),
-              ] else
-                Text('attendance.not_checked_in'.tr()),
-              SizedBox(height: AppSpacing.md.h),
-              if (snapshot.blockingOlderOpen case final record?) ...[
-                Text('attendance.older_open'
-                    .tr(namedArgs: {'date': record.workDate})),
-                AppTextButton(
-                    label: 'requests.types.forgotten_check_out'.tr(),
-                    onPressed: () => context.pushNamed('newRequest',
-                        queryParameters: {'attendanceId': record.id})),
-              ] else if (snapshot.current?.checkOut != null)
-                Text('attendance.completed'.tr())
-              else ...[
-                Text('attendance.capture_explanation'.tr(namedArgs: {
-                  'radius': snapshot.policy.radiusMeters.toStringAsFixed(0),
-                  'accuracy':
-                      snapshot.policy.maxAccuracyMeters.toStringAsFixed(0)
-                })),
-                SizedBox(height: AppSpacing.md.h),
-              ],
-            ])),
+            subtitle: snapshot.workDate,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                      (snapshot.current == null
+                              ? 'attendance.not_checked_in_short'
+                              : snapshot.current!.checkOut == null
+                                  ? 'attendance.working'
+                                  : 'attendance.checked_out')
+                          .tr(),
+                      style: context.textTheme.headlineSmall),
+                  SizedBox(height: AppSpacing.xs),
+                  Text(
+                      '${snapshot.schedule.name} · ${snapshot.schedule.start} – ${snapshot.schedule.end}'),
+                  if ((snapshot.current?.branchName ??
+                          snapshot.policy.branchName)
+                      case final branch?)
+                    Text(branch, style: context.textTheme.bodyMedium),
+                  SizedBox(height: AppSpacing.md),
+                  if (snapshot.canSubmit)
+                    AppButton(
+                        label: (snapshot.current == null
+                                ? 'attendance.check_in'
+                                : 'attendance.check_out')
+                            .tr(),
+                        height: ButtonSize.large,
+                        isFullWidth: true,
+                        prefixIcon: Icon(
+                            snapshot.current == null
+                                ? Icons.login_rounded
+                                : Icons.logout_rounded,
+                            color: context.colors.onPrimary),
+                        isLoading: state.action.isLoading,
+                        onPressed: state.busy || state.pending != null
+                            ? null
+                            : () =>
+                                ref.read(attendanceProvider.notifier).submit()),
+                  SizedBox(height: AppSpacing.md.h),
+                  if (snapshot.current case final current?) ...[
+                    Text(attendanceStatus(current.status)),
+                    Text(
+                        '${'attendance.check_in'.tr()}: ${attendanceTime(current.checkIn, current.timezone)}'),
+                    Text(
+                        '${'attendance.check_out'.tr()}: ${current.checkOut == null ? 'attendance.open'.tr() : attendanceTime(current.checkOut!, current.timezone)}'),
+                    Text(current.timezone),
+                    if (current.checkOut == null &&
+                        current.status == 'Missing check-out')
+                      AppTextButton(
+                          label: 'requests.types.forgotten_check_out'.tr(),
+                          onPressed: () => context.pushNamed('newRequest',
+                              queryParameters: {'attendanceId': current.id})),
+                    SizedBox(height: AppSpacing.md),
+                  ],
+                  if (snapshot.blockingOlderOpen case final record?) ...[
+                    Text('attendance.older_open'
+                        .tr(namedArgs: {'date': record.workDate})),
+                    AppTextButton(
+                        label: 'requests.types.forgotten_check_out'.tr(),
+                        onPressed: () => context.pushNamed('newRequest',
+                            queryParameters: {'attendanceId': record.id})),
+                  ] else if (snapshot.current?.checkOut != null)
+                    Text('attendance.completed'.tr())
+                  else ...[
+                    Text('attendance.capture_explanation'.tr(namedArgs: {
+                      'radius': snapshot.policy.radiusMeters.toStringAsFixed(0),
+                      'accuracy':
+                          snapshot.policy.maxAccuracyMeters.toStringAsFixed(0)
+                    })),
+                    SizedBox(height: AppSpacing.md.h),
+                  ],
+                ])),
         if (state.action case RequestFailure(:final failure)) ...[
           SizedBox(height: AppSpacing.md.h),
           Text(

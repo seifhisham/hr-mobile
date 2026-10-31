@@ -58,10 +58,10 @@ class DefaultFirebaseOptions {
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDTME3Y7plViKgXq3sbUZtSO6NjJgjY-sk',
-    appId: '1:1087877373989:ios:0828bca7254be32ada9fcc',
+    appId: '1:1087877373989:ios:e45beb00bc50cdacda9fcc',
     messagingSenderId: '1087877373989',
     projectId: 'wsc-hr-ebe11',
     storageBucket: 'wsc-hr-ebe11.firebasestorage.app',
-    iosBundleId: 'com.wsc.hodour',
+    iosBundleId: 'com.wallstreetwsc.hodour',
   );
 }

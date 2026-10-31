@@ -204,7 +204,7 @@ $env:JAVA_TOOL_OPTIONS = '-Djdk.net.unixdomain.tmpdir=C:/tmp'
 flutter build appbundle --release
 ```
 
-Package ID: `com.wsc.hodour`. Initial version: `1.0.0+1` in `pubspec.yaml`.
+Android application ID: `com.wsc.hodour`. Initial version: `1.0.0+1` in `pubspec.yaml`.
 Increment the build number for every subsequent Play upload, for example
 `flutter build appbundle --release --build-number=2`.
 
@@ -276,7 +276,7 @@ After pulling `main`, create the ignored local config with `cp .env.example .env
 and set `API_BASE_URL=https://hr.wallstreetwsc.com/api`. Never copy server Firebase
 Admin keys into the app. Run `flutter pub get`, then `cd ios && pod install`.
 Open `Runner.xcworkspace` in Xcode and select your Apple development team/signing
-for `com.wsc.hodour`. The iOS deployment target is 15.0 to match the installed
+for `com.wallstreetwsc.hodour`. The iOS deployment target is 15.0 to match the installed
 Firebase Core SDK. Build with Xcode, or return to the repository root and use
 `flutter build ios` once signing is configured. iOS push/APNs setup is still
 deferred; Android push configuration does not enable iOS notifications.

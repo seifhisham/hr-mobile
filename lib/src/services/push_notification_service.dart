@@ -52,9 +52,14 @@ class PushNotificationService {
       }();
 
   Future<void> start() async {
-    if (!supported) return;
+    if (kIsWeb || (!supported && defaultTargetPlatform != TargetPlatform.iOS)) {
+      return;
+    }
     try {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.android);
+      final app = await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+      if (kDebugMode) debugPrint('Firebase initialized: ${app.options.appId}');
+      if (!supported) return;
       FirebaseMessaging.onBackgroundMessage(androidPushBackgroundHandler);
       await initializeLocalNotifications();
       await _local
@@ -89,8 +94,9 @@ class PushNotificationService {
     }
   }
 
-  void _failed(Object error) => AppLogger.warning('Android push unavailable',
-      context: {'type': error.runtimeType.toString()});
+  void _failed(Object error) =>
+      AppLogger.warning('Firebase startup unavailable',
+          context: {'type': error.runtimeType.toString()});
 
   Future<void> _showForeground(RemoteMessage message) async {
     final notification = message.notification;

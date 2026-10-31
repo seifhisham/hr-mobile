@@ -131,6 +131,7 @@
     "company_date": "Company calendar date",
     "from": "From workday",
     "to": "To workday",
+    "filters": "Filter records",
     "status_filter": "Status",
     "all_statuses": "All statuses",
     "clear_filters": "Clear filters",

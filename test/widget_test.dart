@@ -1689,6 +1689,9 @@ void main() {
     expect(find.text('No evidence available.'), findsOneWidget);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Filter records'));
+    await tester.tap(find.text('Filter records'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('All statuses'));
     await tester.tap(find.text('All statuses'));
     await tester.pumpAndSettle();
