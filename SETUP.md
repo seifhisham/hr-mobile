@@ -286,3 +286,23 @@ deferred; Android push configuration does not enable iOS notifications.
 See [FCM-ANDROID.md](FCM-ANDROID.md) for Firebase Console device-token tests,
 foreground/background behavior, and the remaining backend integration. Android
 push is enabled independently of the deferred iOS/APNs setup.
+
+## Codemagic iOS release
+
+The root `codemagic.yaml` defines the manually started `ios-release` workflow.
+It uses Flutter 3.41.2, creates the bundled `.env` with the production API URL
+above, runs analysis/tests, and builds an App Store IPA. Codemagic's build
+counter supplies the iOS build number. Keep that counter above any previously
+uploaded build number when moving this workflow to another Codemagic app.
+
+Before running it, connect the Apple Developer Portal integration with the
+exact name `Codemagic`. Under Code signing identities, fetch/upload an Apple
+Distribution certificate (with its private key) and an App Store provisioning
+profile for `com.wallstreetwsc.hodour`. Create Hodour's App Store Connect app
+record with that bundle ID before uploading. The workflow uploads the build
+to App Store Connect but leaves TestFlight review and App Store review submission
+manual. After pushing this file, use Check for configuration files in Codemagic.
+
+The production backend URL is bundled publicly in the app. Confirm backend
+availability and complete iPhone permission/background-location/push checks
+before release. Windows checks cannot verify Xcode archive or signing.

@@ -1,0 +1,42 @@
+workflows:
+  ios-release:
+    name: Hodour iOS App Store
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      flutter: 3.41.2
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.wallstreetwsc.hodour
+    scripts:
+      - name: Create application environment
+        script: |
+          printf '%s\n' 'API_BASE_URL=https://hr.wallstreetwsc.com/api' 'APP_STORE_COUNTRY=us' > .env
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze Flutter code
+        script: flutter analyze
+      - name: Run Flutter tests
+        script: flutter test
+      - name: Install CocoaPods dependencies
+        script: cd ios && pod install
+      - name: Configure signing
+        script: xcode-project use-profiles
+      - name: Build App Store IPA
+        script: |
+          flutter build ipa --release \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false
