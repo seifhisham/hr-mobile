@@ -66,3 +66,46 @@ workflows:
     artifacts:
       - build/ios/iphoneos/*.app
       - /tmp/xcodebuild_logs/*.log
+
+  ios-screenshots:
+    name: Hodour iOS store screenshots
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: 3.41.2
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Build simulator app
+        script: |
+          printf '%s\n' 'API_BASE_URL=https://hr.wallstreetwsc.com/api' 'APP_STORE_COUNTRY=us' > .env
+          flutter pub get
+          flutter build ios --simulator --debug
+      - name: Capture iPhone and iPad
+        script: |
+          set -e
+          mkdir -p screenshots
+          xcrun simctl list devices available --json > /tmp/devices.json
+          python3 - <<'PY'
+          import json
+          devices = [d for group in json.load(open('/tmp/devices.json'))['devices'].values() for d in group]
+          for label, prefix in [('iphone', 'iPhone 16 Pro'), ('ipad', 'iPad Pro 13-inch')]:
+              matches = [d for d in devices if d['name'].startswith(prefix)]
+              if not matches:
+                  raise SystemExit(f'No simulator matching {prefix}')
+              with open(f'/tmp/{label}-udid', 'w') as f:
+                  f.write(matches[0]['udid'])
+          PY
+          for device in iphone ipad; do
+            udid=$(cat /tmp/$device-udid)
+            xcrun simctl boot "$udid"
+            xcrun simctl bootstatus "$udid" -b
+            xcrun simctl status_bar "$udid" override --time '9:41' --batteryState charged --batteryLevel 100
+            xcrun simctl install "$udid" build/ios/iphonesimulator/Runner.app
+            xcrun simctl launch "$udid" com.wallstreetwsc.hodour
+            sleep 20
+            xcrun simctl io "$udid" screenshot screenshots/$device.png
+            xcrun simctl shutdown "$udid"
+          done
+    artifacts:
+      - screenshots/*.png
