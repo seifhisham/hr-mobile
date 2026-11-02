@@ -271,7 +271,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
     final user = ref.watch(sessionProvider).userOrNull;
     final record = _record(attendance);
     return AppScaffold(
-        appBar: AppTopBar(title: 'requests.new'.tr()),
+        appBar: AppTopBar(title: requestTypeLabel(_type)),
         body: SafeArea(
             child: RefreshIndicator(
                 onRefresh: () async {
@@ -288,17 +288,28 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen>
                               if (user?.employee == null)
                                 Text('account.no_employee'.tr())
                               else ...[
-                                Text('requests.type'.tr(),
-                                    style: context.textTheme.titleSmall),
-                                SizedBox(height: AppSpacing.sm),
-                                RequestTypeCards(
-                                    selectedType: _type,
-                                    onSelected: _busy(state)
-                                        ? null
-                                        : (value) => setState(() {
-                                              _type = value;
-                                              _errorKey = null;
-                                            })),
+                                Semantics(
+                                    header: true,
+                                    child: Text('requests.new'.tr(),
+                                        style: context.textTheme.titleLarge)),
+                                SizedBox(height: AppSpacing.md.h),
+                                AppDropdown<String>(
+                                    label: 'requests.type'.tr(),
+                                    value: _type,
+                                    enabled: !_busy(state),
+                                    items: [
+                                      for (final type in requestTypes)
+                                        AppDropdownItem(
+                                            value: type,
+                                            label: requestTypeLabel(type)),
+                                    ],
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _type = value;
+                                        _errorKey = null;
+                                      });
+                                    }),
                                 SizedBox(height: AppSpacing.md.h),
                                 if (_type == 'forgotten-check-out') ...[
                                   Text('requests.forgotten_notice'.tr(),

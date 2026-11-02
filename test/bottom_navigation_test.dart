@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hodour/src/shared/widgets/ui/app/navigation/app_bottom_nav_bar.dart';
+import 'package:hodour/src/theme/theme.dart';
 
 void main() {
   testWidgets(
@@ -107,7 +108,7 @@ void main() {
         designSize: const Size(390, 844),
         builder: (context, _) => child!,
       ),
-      theme: ThemeData.dark(),
+      theme: buildDarkTheme(primaryColorHex: '#0068DC'),
       home: MediaQuery(
         data: const MediaQueryData(
             textScaler: TextScaler.linear(2), disableAnimations: true),

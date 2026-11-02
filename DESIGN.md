@@ -11,7 +11,7 @@ This file documents the shared design conventions. Consult it before changing UI
 - **Dark mode:** Light and dark themes are supported; app can follow system brightness. Use semantic colors — do not branch on brightness in widgets for basic surfaces.
 - **Customization:** Global `ThemeData` lives in `lib/src/theme/theme.dart` — avoid one-off `ThemeData` overrides in feature widgets.
 
-- **Light palette:** blue `#0068DC`, pale blue `#C8E7FF`, background `#F7F9FC`, and navy dock `#17263D`. Dark mode uses a navy canvas and lighter blue actions.
+- **Light palette:** blue `#0068DC`, pale blue `#C8E7FF`, background `#F7F9FC`, and navy dock `#17263D`. Dark mode uses a charcoal canvas `#141618`, raised cards `#1D2023`, soft blue actions `#9CCAFF`, and off-white text `#E8EAED`.
 - **Seed color:** `#0068DC` (used to derive `ColorScheme` via `ColorScheme.fromSeed` where applicable).
 
 ---
@@ -92,6 +92,7 @@ Prefer these shortcuts over repeating `Theme.of(context)` in widgets.
 
 - No raw `Colors.white` / `Colors.black` for surfaces — use `colorScheme` roles.
 - Verify new screens in both light and dark theme.
+- Keep all surface-container roles on the neutral charcoal scale; use muted blue-gray headers and green, amber, and blue status containers. Dark input labels and hints use the full semantic text color. Maintain text contrast of at least 4.5:1 and input-boundary contrast of at least 3:1; covered by `test/theme_colors_test.dart`.
 
 ---
 
@@ -202,3 +203,10 @@ surface pairs assigned shift times with current status, then a compact circular 
 and elapsed-work ring. The open record's saved shift/timezone remain authoritative.
 Theme selection remains on Account. Monitoring warnings and attention workflows remain
 available; they may add content beyond the reference's cropped hero.
+
+### Attendance overview
+
+- Home owns check-in/out. Attendance is a read-only overview with filters, saved evidence and forgotten check-out corrections.
+- Completed time sums only closed intervals from the loaded records; counts and time follow the selected filters. Open intervals never inflate completed time.
+- Summaries cover loaded API records. Do not infer absence, payroll time or attendance rates from missing records.
+- Keep correction status and recovery actions visible; detailed timestamps, branch, shift and evidence remain in each record's expandable details.

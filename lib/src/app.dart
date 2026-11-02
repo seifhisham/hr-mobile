@@ -36,8 +36,7 @@ class App extends ConsumerWidget {
         current = SessionListenerWrapper(child: current);
         current = NotificationRefresh(child: current);
         current = SalesRefresh(child: current);
-        current = AttendanceMonitoring(
-            router: ref.watch(appRouterProvider), child: current);
+        current = AttendanceMonitoring(child: current);
         // Keep disabled during store testing; enable once listings are public.
         if (const bool.fromEnvironment('ENABLE_UPDATE_CHECK')) {
           current = UpdateGate(child: current);

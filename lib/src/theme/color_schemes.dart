@@ -130,22 +130,22 @@ class AppPalettes {
   );
 
   static const dark = AppColorsExtension(
-    homeBlue: Color(0xFF164F91),
-    onHomeBlue: Colors.white,
-    homeProgress: Color(0xFF75BFFF),
-    homeTrack: Color(0xFF2A496B),
-    success: Color(0xFF81C784),
-    onSuccess: Color(0xFF003300),
-    successContainer: Color(0xFF1B5E20),
-    onSuccessContainer: Color(0xFFA5D6A7),
-    warning: Color(0xFFFFB74D),
-    onWarning: Color(0xFF5D4037),
-    warningContainer: Color(0xFFE65100),
-    onWarningContainer: Color(0xFFFFCC80),
-    info: Color(0xFF4FC3F7),
-    onInfo: Color(0xFF01579B),
-    infoContainer: Color(0xFF0277BD),
-    onInfoContainer: Color(0xFFE1F5FE),
+    homeBlue: Color(0xFF303E50),
+    onHomeBlue: Color(0xFFF0F3F7),
+    homeProgress: Color(0xFF9CCAFF),
+    homeTrack: Color(0xFF24394D),
+    success: Color(0xFF8ED5AC),
+    onSuccess: Color(0xFF102D1E),
+    successContainer: Color(0xFF1B3B2C),
+    onSuccessContainer: Color(0xFFC3F0D5),
+    warning: Color(0xFFE9C078),
+    onWarning: Color(0xFF30230D),
+    warningContainer: Color(0xFF43351F),
+    onWarningContainer: Color(0xFFF7DDA8),
+    info: Color(0xFF9CCAFF),
+    onInfo: Color(0xFF102D48),
+    infoContainer: Color(0xFF24394D),
+    onInfoContainer: Color(0xFFD7E9FF),
   );
 }
 

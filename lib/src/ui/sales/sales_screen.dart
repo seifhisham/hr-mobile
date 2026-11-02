@@ -1,9 +1,9 @@
 import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/sales_activity.dart';
 import '../auth/providers/session_provider.dart';
-import '../employee_navigation.dart';
 import 'sales_provider.dart';
 import 'sales_widgets.dart';
+import 'sales_dashboard_widgets.dart';
 
 class SalesScreen extends ConsumerStatefulWidget {
   const SalesScreen({super.key, this.team = false});
@@ -66,11 +66,10 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (!team)
-                            EmployeeHeading(
-                                title: 'sales.title'.tr(),
-                                subtitle: 'sales.subtitle'.tr(),
-                                icon: Icons.home_work_outlined),
+                          if (!team) ...[
+                            const SalesPageHeading(),
+                            SizedBox(height: AppSpacing.md),
+                          ],
                           if (team) ...[
                             SalesNotice(
                                 text: 'sales.team_hint'.tr(),
@@ -97,22 +96,16 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                                 .tr()),
                           if (allowed) ...[
                             if (!team && access.canSubmit) ...[
-                              AppButton(
-                                  label: 'sales.register'.tr(),
-                                  prefixIcon: const ExcludeSemantics(
-                                      child: Icon(Icons.add_circle_outline)),
-                                  onPressed: () =>
+                              SalesWorkflowHero(
+                                  onRecord: () =>
                                       context.pushNamed('newSalesActivity')),
-                              SizedBox(height: AppSpacing.sm),
+                              SizedBox(height: AppSpacing.md),
                             ],
                             if (!team &&
                                 !access.canSubmit &&
                                 accessState is RequestSuccess<SalesAccess>)
-                              Padding(
-                                  padding:
-                                      EdgeInsets.only(bottom: AppSpacing.md),
-                                  child: Text('sales.read_only'.tr())),
-                            if (!team && access.canReview)
+                              SalesNotice(text: 'sales.read_only'.tr()),
+                            if (!team && access.canReview) ...[
                               AppButton(
                                   label: 'sales.team_title'.tr(),
                                   prefixIcon: const ExcludeSemantics(
@@ -120,6 +113,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                                   variant: ButtonVariant.outline,
                                   onPressed: () =>
                                       context.pushNamed('teamSales')),
+                              SizedBox(height: AppSpacing.sm),
+                            ],
                             SizedBox(height: AppSpacing.lg),
                             AppCard(
                                 child: Column(
@@ -178,12 +173,32 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                               Text(failure.message,
                                   style:
                                       TextStyle(color: context.colors.error)),
-                            for (final row in rows) ...[
-                              SalesPerformanceCard(row: row, team: team),
-                              SizedBox(height: AppSpacing.md)
+                            for (final row in team && state.employeeId == null
+                                ? <SalesPerformance>[]
+                                : rows) ...[
+                              SalesMonthlySnapshot(
+                                  row: row,
+                                  team: team,
+                                  onShowReturned: () => controller.filter(
+                                      status: 'returned',
+                                      employeeId:
+                                          team ? row.employeeId : null)),
+                              SizedBox(height: AppSpacing.md),
                             ],
                             if (dashboard != null && rows.isEmpty)
-                              AppCard(child: Text('sales.no_summary'.tr())),
+                              SalesNotice(text: 'sales.no_summary'.tr()),
+                            if (rows.isNotEmpty) ...[
+                              SizedBox(height: AppSpacing.lg),
+                              SalesDisclosure(
+                                  title: 'sales.results_details'.tr(),
+                                  child: Column(children: [
+                                    for (final row in rows) ...[
+                                      SalesPerformanceCard(
+                                          row: row, team: team),
+                                      SizedBox(height: AppSpacing.md),
+                                    ],
+                                  ])),
+                            ],
                             SizedBox(height: AppSpacing.lg),
                             SalesSectionHeading(
                                 title: 'sales.activity_history'.tr(),
@@ -192,44 +207,85 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                             Text('sales.history_hint'.tr(),
                                 style: context.textTheme.bodyMedium),
                             SizedBox(height: AppSpacing.md),
-                            AppDropdown<String>(
-                                label: 'sales.type'.tr(),
-                                value: state.kind ?? '',
-                                items: [
-                                  AppDropdownItem(
-                                      value: '', label: 'sales.all_types'.tr()),
-                                  for (final kind in salesKinds)
-                                    AppDropdownItem(
-                                        value: kind,
-                                        label: salesKindLabel(kind)),
+                            SalesDisclosure(
+                              title: 'sales.filter_activities'.tr(),
+                              initiallyExpanded:
+                                  state.kind != null || state.status != null,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  AppDropdown<String>(
+                                      label: 'sales.type'.tr(),
+                                      value: state.kind ?? '',
+                                      items: [
+                                        AppDropdownItem(
+                                            value: '',
+                                            label: 'sales.all_types'.tr()),
+                                        for (final kind in salesKinds)
+                                          AppDropdownItem(
+                                              value: kind,
+                                              label: salesKindLabel(kind)),
+                                      ],
+                                      onChanged: (v) => controller.filter(
+                                          kind: v == '' ? null : v,
+                                          status: state.status,
+                                          employeeId: state.employeeId)),
+                                  SizedBox(height: AppSpacing.md),
+                                  AppDropdown<String>(
+                                      label: 'sales.status'.tr(),
+                                      value: state.status ?? '',
+                                      items: [
+                                        AppDropdownItem(
+                                            value: '',
+                                            label: 'sales.all_statuses'.tr()),
+                                        for (final status in salesStatuses)
+                                          AppDropdownItem(
+                                              value: status,
+                                              label: salesStatusLabel(status)),
+                                      ],
+                                      onChanged: (v) => controller.filter(
+                                          kind: state.kind,
+                                          status: v == '' ? null : v,
+                                          employeeId: state.employeeId)),
                                 ],
-                                onChanged: (v) => controller.filter(
-                                    kind: v == '' ? null : v,
-                                    status: state.status,
-                                    employeeId: state.employeeId)),
-                            SizedBox(height: AppSpacing.md),
-                            AppDropdown<String>(
-                                label: 'sales.status'.tr(),
-                                value: state.status ?? '',
-                                items: [
-                                  AppDropdownItem(
-                                      value: '',
-                                      label: 'sales.all_statuses'.tr()),
-                                  for (final status in salesStatuses)
-                                    AppDropdownItem(
-                                        value: status,
-                                        label: salesStatusLabel(status)),
-                                ],
-                                onChanged: (v) => controller.filter(
-                                    kind: state.kind,
-                                    status: v == '' ? null : v,
-                                    employeeId: state.employeeId)),
+                              ),
+                            ),
+                            if (state.kind != null || state.status != null)
+                              Wrap(spacing: AppSpacing.sm, children: [
+                                if (state.kind case final kind?)
+                                  AppChip(
+                                      label: salesKindLabel(kind),
+                                      selected: true,
+                                      onDeleted: () => controller.filter(
+                                          status: state.status,
+                                          employeeId: state.employeeId)),
+                                if (state.status case final status?)
+                                  AppChip(
+                                      label: salesStatusLabel(status),
+                                      selected: true,
+                                      onDeleted: () => controller.filter(
+                                          kind: state.kind,
+                                          employeeId: state.employeeId)),
+                              ]),
+                            if (state.kind != null || state.status != null)
+                              AppTextButton(
+                                  label: 'sales.clear_filters'.tr(),
+                                  onPressed: () => controller.filter(
+                                      employeeId: state.employeeId)),
                             if (dashboard != null &&
                                 dashboard.activities.isEmpty)
                               AppEmptyState(
                                   icon: Icons.home_work_outlined,
                                   title: 'sales.empty'.tr(),
-                                  subtitle: 'sales.empty_hint'.tr()),
+                                  subtitle: (state.kind != null ||
+                                              state.status != null
+                                          ? 'sales.empty_filtered_hint'
+                                          : team
+                                              ? 'sales.empty_team_hint'
+                                              : access.canSubmit
+                                                  ? 'sales.empty_hint'
+                                                  : 'sales.empty_read_only_hint')
+                                      .tr()),
                             for (final item in dashboard?.activities ??
                                 <SalesActivity>[]) ...[
                               SizedBox(height: AppSpacing.md),
@@ -257,7 +313,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
     controller.filter(
         month: DateFormat('yyyy-MM').format(next),
         kind: state.kind,
-        status: state.status);
+        status: state.status,
+        employeeId: state.employeeId);
   }
 
   Future<void> _chooseMonth(BuildContext context,
@@ -311,7 +368,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
       await controller.filter(
           month: DateFormat('yyyy-MM').format(date),
           kind: state.kind,
-          status: state.status);
+          status: state.status,
+          employeeId: state.employeeId);
     }
   }
 }

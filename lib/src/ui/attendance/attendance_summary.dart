@@ -1,13 +1,12 @@
 import 'package:hodour/src/imports/imports.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
-import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/attendance_model.dart';
 import 'attendance_provider.dart';
 import 'attendance_work_progress.dart';
+import 'attendance_record_widgets.dart';
 
 class AttendanceSummary extends ConsumerStatefulWidget {
-  const AttendanceSummary({super.key, this.homeStyle = false});
-  final bool homeStyle;
+  const AttendanceSummary({super.key});
   @override
   ConsumerState<AttendanceSummary> createState() => _AttendanceSummaryState();
 }
@@ -35,11 +34,6 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
     tzdata.initializeTimeZones();
     WidgetsBinding.instance.addObserver(this);
     ref.read(attendanceCaptureProvider).discardLostCapture();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !widget.homeStyle) {
-        ref.read(attendanceProvider.notifier).refresh();
-      }
-    });
   }
 
   @override
@@ -106,124 +100,7 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
     });
     final state = ref.watch(attendanceProvider);
     final snapshot = state.snapshot;
-    if (widget.homeStyle) return _homeSummary(context, state, snapshot);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (snapshot?.awaitingForgottenApproval ?? false)
-        Semantics(
-            liveRegion: true,
-            child: Text('attendance.forgotten_pending_check_in'.tr())),
-      if (state.noticeKey case final key?)
-        Semantics(
-            liveRegion: true,
-            child: Text(key.tr(), style: context.textTheme.titleMedium)),
-      if (state.data.isLoading && snapshot == null)
-        const Center(child: CircularProgressIndicator()),
-      if (state.data case RequestFailure(:final failure))
-        Text(failure.message, style: TextStyle(color: context.colors.error)),
-      if (state.pending != null || state.data is RequestFailure)
-        AppButton(
-            label: (state.pending != null
-                    ? 'attendance.reconcile'
-                    : 'attendance.refresh')
-                .tr(),
-            variant: ButtonVariant.outline,
-            onPressed: state.busy
-                ? null
-                : () => ref.read(attendanceProvider.notifier).refresh()),
-      if (snapshot != null) ...[
-        AppCard(
-            color: context.colors.surfaceContainerLow,
-            leading: Icon(Icons.today_rounded, color: context.colors.primary),
-            title: 'attendance.workday'.tr(),
-            subtitle: snapshot.workDate,
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                      (snapshot.current == null
-                              ? 'attendance.not_checked_in_short'
-                              : snapshot.current!.checkOut == null
-                                  ? 'attendance.working'
-                                  : 'attendance.checked_out')
-                          .tr(),
-                      style: context.textTheme.headlineSmall),
-                  SizedBox(height: AppSpacing.xs),
-                  Text(
-                      '${snapshot.schedule.name} · ${snapshot.schedule.start} – ${snapshot.schedule.end}'),
-                  if ((snapshot.current?.branchName ??
-                          snapshot.policy.branchName)
-                      case final branch?)
-                    Text(branch, style: context.textTheme.bodyMedium),
-                  SizedBox(height: AppSpacing.md),
-                  if (snapshot.canSubmit)
-                    AppButton(
-                        label: (snapshot.current == null
-                                ? 'attendance.check_in'
-                                : 'attendance.check_out')
-                            .tr(),
-                        height: ButtonSize.large,
-                        isFullWidth: true,
-                        prefixIcon: Icon(
-                            snapshot.current == null
-                                ? Icons.login_rounded
-                                : Icons.logout_rounded,
-                            color: context.colors.onPrimary),
-                        isLoading: state.action.isLoading,
-                        onPressed: state.busy || state.pending != null
-                            ? null
-                            : () =>
-                                ref.read(attendanceProvider.notifier).submit()),
-                  SizedBox(height: AppSpacing.md.h),
-                  if (snapshot.current case final current?) ...[
-                    Text(attendanceStatus(current.status)),
-                    Text(
-                        '${'attendance.check_in'.tr()}: ${attendanceTime(current.checkIn, current.timezone)}'),
-                    Text(
-                        '${'attendance.check_out'.tr()}: ${current.checkOut == null ? 'attendance.open'.tr() : attendanceTime(current.checkOut!, current.timezone)}'),
-                    Text(current.timezone),
-                    if (current.checkOut == null &&
-                        current.status == 'Missing check-out')
-                      AppTextButton(
-                          label: 'requests.types.forgotten_check_out'.tr(),
-                          onPressed: () => context.pushNamed('newRequest',
-                              queryParameters: {'attendanceId': current.id})),
-                    SizedBox(height: AppSpacing.md),
-                  ],
-                  if (snapshot.blockingOlderOpen case final record?) ...[
-                    Text('attendance.older_open'
-                        .tr(namedArgs: {'date': record.workDate})),
-                    AppTextButton(
-                        label: 'requests.types.forgotten_check_out'.tr(),
-                        onPressed: () => context.pushNamed('newRequest',
-                            queryParameters: {'attendanceId': record.id})),
-                  ] else if (snapshot.current?.checkOut != null)
-                    Text('attendance.completed'.tr())
-                  else ...[
-                    Text('attendance.capture_explanation'.tr(namedArgs: {
-                      'radius': snapshot.policy.radiusMeters.toStringAsFixed(0),
-                      'accuracy':
-                          snapshot.policy.maxAccuracyMeters.toStringAsFixed(0)
-                    })),
-                    SizedBox(height: AppSpacing.md.h),
-                  ],
-                ])),
-        if (state.action case RequestFailure(:final failure)) ...[
-          SizedBox(height: AppSpacing.md.h),
-          Text(
-              failure is CaptureFailure
-                  ? failure.message.tr()
-                  : failure.message,
-              style: TextStyle(color: context.colors.error)),
-          if (failure case CaptureFailure(:final recovery)
-              when recovery != CaptureRecovery.retry)
-            AppButton(
-                label: 'attendance.open_settings'.tr(),
-                variant: ButtonVariant.outline,
-                onPressed: () =>
-                    ref.read(attendanceCaptureProvider).openSettings(recovery)),
-        ],
-      ],
-    ]);
+    return _homeSummary(context, state, snapshot);
   }
 
   Widget _homeSummary(BuildContext context, AttendanceState state,
@@ -411,29 +288,3 @@ class _AttendanceSummaryState extends ConsumerState<AttendanceSummary>
           ? AttendanceWorkProgress(record: current, child: child)
           : child;
 }
-
-String attendanceTime(DateTime timestamp, String timezone) {
-  try {
-    return DateFormat('yyyy-MM-dd HH:mm')
-        .format(tz.TZDateTime.from(timestamp, tz.getLocation(timezone)));
-  } on tz.LocationNotFoundException {
-    return '${DateFormat('yyyy-MM-dd HH:mm').format(timestamp.toUtc())} UTC';
-  }
-}
-
-String attendanceClock(DateTime timestamp, String timezone) {
-  try {
-    return DateFormat('HH:mm:ss')
-        .format(tz.TZDateTime.from(timestamp, tz.getLocation(timezone)));
-  } on tz.LocationNotFoundException {
-    return '${DateFormat('HH:mm:ss').format(timestamp.toUtc())} UTC';
-  }
-}
-
-String attendanceStatus(String? status) => switch (status) {
-      'On time' => 'attendance.on_time'.tr(),
-      'Late' => 'attendance.late'.tr(),
-      'Not scheduled' => 'attendance.not_scheduled'.tr(),
-      'Missing check-out' => 'attendance.missing_checkout'.tr(),
-      _ => status ?? '',
-    };

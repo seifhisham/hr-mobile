@@ -9,7 +9,7 @@ import 'attendance_test.dart'
 void main() {
   for (final language in ['en', 'ar']) {
     testWidgets(
-        'Check-In retries a failed load and opens history filters in $language',
+        'Attendance retries a failed load and opens history filters in $language',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
       await EasyLocalization.ensureInitialized();
@@ -61,8 +61,11 @@ void main() {
       expect(find.text('Offline'), findsOneWidget);
       await tester.tap(find.text('attendance.refresh'.tr()));
       await tester.pumpAndSettle();
-      expect(find.text('attendance.checked_out'.tr()), findsOneWidget);
+      expect(find.text('attendance.completed_time'.tr()), findsOneWidget);
+      expect(find.text('attendance.check_in'.tr()), findsNothing);
+      expect(find.text('attendance.check_out'.tr()), findsNothing);
       expect(repository.posts, 0);
+      expect(find.text('attendance.history_limit'.tr()), findsNothing);
       final filters = find.text('attendance.filters'.tr());
       await tester.ensureVisible(filters);
       await tester.tap(filters);

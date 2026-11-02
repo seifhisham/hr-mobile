@@ -231,8 +231,10 @@ class AppDropdown<T> extends StatelessWidget {
               horizontal: AppSpacing.md, vertical: AppSpacing.md),
           enabledBorder: OutlineInputBorder(
               borderRadius: AppBorders.input,
-              borderSide:
-                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
+              borderSide: BorderSide(
+                  color: cs.brightness == Brightness.dark
+                      ? cs.outline
+                      : cs.outlineVariant.withValues(alpha: 0.5))),
           focusedBorder: OutlineInputBorder(
               borderRadius: AppBorders.input,
               borderSide: BorderSide(color: cs.primary)),

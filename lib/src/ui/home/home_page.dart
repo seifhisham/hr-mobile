@@ -51,7 +51,7 @@ class HomePage extends ConsumerWidget {
                                       onPressed: () =>
                                           context.pushNamed('teamSales')),
                               ])
-                        : const AttendanceSummary(homeStyle: true)),
+                        : const AttendanceSummary()),
                 const AttendanceLocationStatus(),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),

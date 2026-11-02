@@ -1,5 +1,6 @@
 import 'package:hodour/src/imports/imports.dart';
 import '../../shared/widgets/app_logo.dart';
+import '../../shared/widgets/privacy_policy_button.dart';
 import 'providers/auth_provider.dart';
 import '../../theme/theme_toggle_button.dart';
 
@@ -119,6 +120,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: state.isLoading ? null : _submit),
                   SizedBox(height: AppSpacing.lg.h),
                   Text('auth.contact_hr'.tr(), textAlign: TextAlign.center),
+                  SizedBox(height: AppSpacing.md.h),
+                  const PrivacyPolicyButton(),
                 ],
               ))),
     ))));

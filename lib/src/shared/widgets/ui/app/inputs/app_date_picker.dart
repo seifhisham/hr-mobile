@@ -66,7 +66,8 @@ class AppDatePicker extends StatelessWidget {
                     children: [
                       CupertinoButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
+                        child: Text('Cancel',
+                            style: TextStyle(color: cs.onSurfaceVariant)),
                       ),
                       CupertinoButton(
                         onPressed: () {
@@ -132,7 +133,10 @@ class AppDatePicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: useCupertino ? cs.surfaceContainerHighest : null,
           borderRadius: AppBorders.input,
-          border: Border.all(color: cs.outlineVariant),
+          border: Border.all(
+              color: cs.brightness == Brightness.dark
+                  ? cs.outline
+                  : cs.outlineVariant),
         ),
         child: Row(
           children: [
@@ -143,7 +147,8 @@ class AppDatePicker extends StatelessWidget {
                   if (label != null && !useCupertino)
                     Text(
                       label!,
-                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                      style:
+                          tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   Text(
                     display,
@@ -155,7 +160,9 @@ class AppDatePicker extends StatelessWidget {
               ),
             ),
             Icon(
-              useCupertino ? CupertinoIcons.calendar : Icons.calendar_today_outlined,
+              useCupertino
+                  ? CupertinoIcons.calendar
+                  : Icons.calendar_today_outlined,
               size: 20.sp,
               color: cs.onSurfaceVariant,
             ),

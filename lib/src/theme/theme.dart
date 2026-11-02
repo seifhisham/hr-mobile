@@ -207,9 +207,11 @@ ThemeData _buildTheme(
       ),
       floatingLabelStyle: TextStyle(color: colorScheme.primary),
       labelStyle: textTheme.labelMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+          color: colorScheme.onSurfaceVariant.withValues(
+              alpha: colorScheme.brightness == Brightness.dark ? 1 : 0.5)),
       hintStyle: textTheme.labelMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+          color: colorScheme.onSurfaceVariant.withValues(
+              alpha: colorScheme.brightness == Brightness.dark ? 1 : 0.5)),
     ),
 
     // Navigation Bar Theme
@@ -397,15 +399,37 @@ ThemeData buildDarkTheme({required String primaryColorHex}) {
     brightness: Brightness.dark,
   ).copyWith(
     primary: AppPalettes.dark.homeProgress,
-    onPrimary: const Color(0xFF002E5C),
+    onPrimary: const Color(0xFF102D48),
     primaryContainer: AppPalettes.dark.homeTrack,
-    onPrimaryContainer: const Color(0xFFE0F0FF),
+    onPrimaryContainer: const Color(0xFFD7E9FF),
+    secondary: const Color(0xFFBAC8DA),
+    onSecondary: const Color(0xFF243140),
     secondaryContainer: AppPalettes.dark.homeTrack,
-    onSecondaryContainer: const Color(0xFFE0F0FF),
-    surface: const Color(0xFF0F1724),
-    surfaceContainerLow: const Color(0xFF17263D),
-    inverseSurface: const Color(0xFF213451),
-    onInverseSurface: const Color(0xFFE8EFFA),
+    onSecondaryContainer: const Color(0xFFD7E9FF),
+    tertiary: const Color(0xFFA4D4CE),
+    onTertiary: const Color(0xFF153733),
+    tertiaryContainer: const Color(0xFF29443F),
+    onTertiaryContainer: const Color(0xFFC5EBE5),
+    error: const Color(0xFFFFB4AB),
+    onError: const Color(0xFF561E1A),
+    errorContainer: const Color(0xFF4D2825),
+    onErrorContainer: const Color(0xFFFFDAD5),
+    surface: const Color(0xFF141618),
+    onSurface: const Color(0xFFE8EAED),
+    onSurfaceVariant: const Color(0xFFBAC0C8),
+    surfaceDim: const Color(0xFF141618),
+    surfaceBright: const Color(0xFF383B3F),
+    surfaceContainerLowest: const Color(0xFF101214),
+    surfaceContainerLow: const Color(0xFF1D2023),
+    surfaceContainer: const Color(0xFF24272B),
+    surfaceContainerHigh: const Color(0xFF2B2E32),
+    surfaceContainerHighest: const Color(0xFF35383B),
+    outline: const Color(0xFF8D949C),
+    outlineVariant: const Color(0xFF454B52),
+    surfaceTint: Colors.transparent,
+    inverseSurface: const Color(0xFF292D32),
+    onInverseSurface: const Color(0xFFE8EAED),
+    inversePrimary: const Color(0xFF9CCAFF),
   );
   return _buildTheme(colorScheme, AppPalettes.dark);
 }

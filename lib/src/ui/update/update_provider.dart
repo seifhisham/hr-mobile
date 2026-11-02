@@ -21,18 +21,23 @@ class UpdateController extends StateNotifier<RequestState<AppVersionResult?>> {
   }
 
   final FutureEither<AppVersionResult?> Function() _check;
+  AppVersionResult? _requiredUpdate;
 
   Future<void> check() async {
     if (state.isLoading) return;
     state = const RequestLoading();
     final result = await _check();
     if (!mounted) return;
-    state = result.fold(RequestFailure.new, (data) {
-      if (data == null) {
-        return const RequestFailure(
-            ServerFailure('Store returned no version information.'));
+    // A first release has no public listing; keep only confirmed updates blocking.
+    state = result.fold((failure) {
+      AppLogger.warning('Store update check unavailable',
+          context: {'type': failure.runtimeType.toString()});
+      return RequestSuccess(_requiredUpdate);
+    }, (data) {
+      if (data?.canUpdate != null) {
+        _requiredUpdate = data!.canUpdate! ? data : null;
       }
-      return RequestSuccess(data);
+      return RequestSuccess(_requiredUpdate);
     });
   }
 }

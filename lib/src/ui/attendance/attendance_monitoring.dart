@@ -5,14 +5,13 @@ import '../../services/attendance_location_warning.dart';
 import 'attendance_monitor_provider.dart';
 import 'attendance_provider.dart';
 import '../requests/requests_provider.dart';
-import 'attendance_summary.dart' show attendanceTime;
+import 'attendance_record_widgets.dart' show attendanceTime;
 import '../auth/providers/session_provider.dart';
 
 /// App-wide monitoring survives route changes; the server alone closes attendance.
 class AttendanceMonitoring extends ConsumerStatefulWidget {
-  const AttendanceMonitoring({super.key, required this.child, this.router});
+  const AttendanceMonitoring({super.key, required this.child});
   final Widget child;
-  final GoRouter? router;
   @override
   ConsumerState<AttendanceMonitoring> createState() =>
       _AttendanceMonitoringState();
@@ -30,16 +29,11 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
     super.initState();
     _warning = ref.read(attendanceLocationWarningProvider);
     WidgetsBinding.instance.addObserver(this);
-    widget.router?.routeInformationProvider.addListener(_routeChanged);
     // Remove any previous process's warning; launch reconciliation restores valid ones.
     unawaited(_warning.update(null));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _deadlineChanged(ref.read(attendanceMonitorProvider));
     });
-  }
-
-  void _routeChanged() {
-    if (mounted) setState(() {});
   }
 
   void _deadlineChanged(AttendanceMonitorState next) {
@@ -360,7 +354,6 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
     _deadlineTimer?.cancel();
     _clock?.cancel();
     unawaited(_warning.update(null));
-    widget.router?.routeInformationProvider.removeListener(_routeChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -387,8 +380,6 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
     final countdown =
         '${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}';
     final failure = monitor.failure;
-    final inline = widget.router?.routeInformationProvider.value.uri.path ==
-        AppRoutes.home;
     final status = IgnorePointer(
         ignoring: _detailsOpen,
         child: ExcludeSemantics(
@@ -400,7 +391,7 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
                         ? context.colors.scrim.withValues(alpha: 0.54)
                         : Colors.transparent),
                 child: SafeArea(
-                    top: !inline,
+                    top: false,
                     bottom: false,
                     child: Material(
                         color: deadline != null
@@ -410,11 +401,8 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
                             constraints:
                                 BoxConstraints(maxHeight: context.height * 0.4),
                             child: SingleChildScrollView(
-                                padding: EdgeInsets.fromLTRB(
-                                    inline ? AppSpacing.md : AppSpacing.lg,
-                                    AppSpacing.sm,
-                                    inline ? AppSpacing.md : AppSpacing.lg,
-                                    0),
+                                padding: EdgeInsets.fromLTRB(AppSpacing.md,
+                                    AppSpacing.sm, AppSpacing.md, 0),
                                 child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -539,14 +527,7 @@ class _AttendanceMonitoringState extends ConsumerState<AttendanceMonitoring>
                                     ]))))))));
     return _AttendanceStatusScope(
       status: status,
-      child: inline
-          ? widget.child
-          : Column(children: [
-              status,
-              Expanded(
-                  child: MediaQuery.removePadding(
-                      context: context, removeTop: true, child: widget.child)),
-            ]),
+      child: widget.child,
     );
   }
 }

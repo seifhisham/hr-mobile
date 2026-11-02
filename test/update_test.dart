@@ -13,7 +13,7 @@ import 'package:hodour/src/ui/update/update_provider.dart';
 import 'package:hodour/src/utils/utils.dart';
 
 void main() {
-  test('serializes checks, blocks failure, and permits retry', () async {
+  test('serializes checks, permits unavailable store, and retries', () async {
     var calls = 0;
     var pending = Completer<Either<Failure, AppVersionResult?>>();
     final controller = UpdateController(() {
@@ -26,7 +26,7 @@ void main() {
     expect(calls, 1);
     pending.complete(const Left(NetworkFailure('Offline')));
     await Future<void>.delayed(Duration.zero);
-    expect(controller.state.isFailure, true);
+    expect(controller.state.isSuccess, true);
     pending = Completer();
     final retry = controller.check();
     pending.complete(Right(AppVersionResult(canUpdate: false)));
@@ -34,12 +34,29 @@ void main() {
     expect(controller.state.isSuccess, true);
   });
 
-  test('missing store result cannot grant access', () async {
+  test('missing store result permits first-release access', () async {
     final controller =
         UpdateController(() async => const Right(null), supported: true);
     addTearDown(controller.dispose);
     await Future<void>.delayed(Duration.zero);
-    expect(controller.state.isFailure, true);
+    expect(controller.state, isA<RequestSuccess<AppVersionResult?>>());
+  });
+
+  test('failed recheck cannot clear a confirmed mandatory update', () async {
+    final update = AppVersionResult(canUpdate: true);
+    Either<Failure, AppVersionResult?> result = Right(update);
+    final controller = UpdateController(() async => result, supported: true);
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+    result = const Left(NetworkFailure('Offline'));
+    await controller.check();
+    expect((controller.state as RequestSuccess<AppVersionResult?>).data, update);
+    result = const Right(null);
+    await controller.check();
+    expect((controller.state as RequestSuccess<AppVersionResult?>).data, update);
+    result = Right(AppVersionResult(canUpdate: false));
+    await controller.check();
+    expect((controller.state as RequestSuccess<AppVersionResult?>).data, isNull);
   });
 
   for (final canUpdate in [true, false]) {

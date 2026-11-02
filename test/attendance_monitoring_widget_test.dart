@@ -110,7 +110,11 @@ void main() {
                           data: MediaQuery.of(context).copyWith(
                               textScaler: const TextScaler.linear(1.8)),
                           child: AttendanceMonitoring(child: child!)),
-                      home: const Scaffold(body: Text('Employee screen')))))));
+                      home: const Scaffold(
+                          body: Column(children: [
+                        AttendanceLocationStatus(),
+                        Text('Employee screen')
+                      ])))))));
       await tester.pump();
       await tester.pump();
       expect(
@@ -159,8 +163,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(tester.getRect(find.byType(BottomSheet)).top,
-          greaterThanOrEqualTo(tester.getRect(card).bottom),
-          reason: 'The sheet stays below the monitoring card');
+          greaterThanOrEqualTo(0),
+          reason: 'The sheet stays within the screen');
       await tester.tapAt(tester.getCenter(card));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);

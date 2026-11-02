@@ -1,4 +1,5 @@
 import 'package:hodour/src/imports/imports.dart';
+import '../../shared/widgets/privacy_policy_button.dart';
 import '../../theme/theme_toggle_button.dart';
 import '../notifications/notification_button.dart';
 import '../auth/providers/session_provider.dart';
@@ -181,6 +182,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 ])),
                       ],
                       SizedBox(height: AppSpacing.lg.h),
+                      const PrivacyPolicyButton(),
+                      SizedBox(height: AppSpacing.md.h),
                       AppButton(
                           label: 'account.change_password'.tr(),
                           prefixIcon: const Icon(Icons.lock_outline_rounded),

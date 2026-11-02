@@ -34,7 +34,8 @@ class AppTimePicker extends StatelessWidget {
     final localizations = MaterialLocalizations.of(context);
     return localizations.formatTimeOfDay(
       t,
-      alwaysUse24HourFormat: use24HourFormat ?? MediaQuery.alwaysUse24HourFormatOf(context),
+      alwaysUse24HourFormat:
+          use24HourFormat ?? MediaQuery.alwaysUse24HourFormatOf(context),
     );
   }
 
@@ -47,7 +48,8 @@ class AppTimePicker extends StatelessWidget {
     final initial = value ?? now;
 
     if (useCupertino) {
-      final initialDateTime = DateTime(2000, 1, 1, initial.hour, initial.minute);
+      final initialDateTime =
+          DateTime(2000, 1, 1, initial.hour, initial.minute);
       var temp = initial;
       await showCupertinoModalPopup<void>(
         context: context,
@@ -65,7 +67,8 @@ class AppTimePicker extends StatelessWidget {
                     children: [
                       CupertinoButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
+                        child: Text('Cancel',
+                            style: TextStyle(color: cs.onSurfaceVariant)),
                       ),
                       CupertinoButton(
                         onPressed: () {
@@ -129,7 +132,10 @@ class AppTimePicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: useCupertino ? cs.surfaceContainerHighest : null,
           borderRadius: AppBorders.input,
-          border: Border.all(color: cs.outlineVariant),
+          border: Border.all(
+              color: cs.brightness == Brightness.dark
+                  ? cs.outline
+                  : cs.outlineVariant),
         ),
         child: Row(
           children: [
@@ -140,7 +146,8 @@ class AppTimePicker extends StatelessWidget {
                   if (label != null && !useCupertino)
                     Text(
                       label!,
-                      style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                      style:
+                          tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
                   Text(
                     display,

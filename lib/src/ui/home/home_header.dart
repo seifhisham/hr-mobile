@@ -5,7 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/user_model.dart';
 import '../notifications/notification_button.dart';
 import '../attendance/attendance_provider.dart';
-import '../attendance/attendance_summary.dart' show attendanceTime;
+import '../attendance/attendance_record_widgets.dart' show attendanceTime;
 
 class HomeHeader extends ConsumerStatefulWidget {
   const HomeHeader({super.key, required this.user, this.child});

@@ -2,7 +2,7 @@ import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/attendance_model.dart';
 import '../../services/attendance_service.dart';
 import '../auth/providers/session_provider.dart';
-import 'attendance_summary.dart' show attendanceTime;
+import 'attendance_record_widgets.dart' show attendanceTime;
 
 final attendanceEvidenceServiceProvider =
     Provider((ref) => AttendanceService.instance);

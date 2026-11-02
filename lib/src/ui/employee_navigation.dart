@@ -22,8 +22,8 @@ class EmployeeNavigation extends ConsumerWidget {
             activeIcon: Icons.home_rounded),
         AppBottomNavItem(
             label: 'attendance.nav_label'.tr(),
-            icon: Icons.access_time_rounded,
-            activeIcon: Icons.access_time_filled_rounded),
+            icon: Icons.calendar_month_outlined,
+            activeIcon: Icons.calendar_month_rounded),
         AppBottomNavItem(
             label: 'requests.title'.tr(),
             icon: Icons.description_outlined,

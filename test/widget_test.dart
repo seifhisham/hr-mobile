@@ -37,9 +37,11 @@ import 'package:hodour/src/routing/app_router.dart';
 import 'package:hodour/src/services/attendance_service.dart';
 import 'package:hodour/src/ui/attendance/attendance_provider.dart';
 import 'package:hodour/src/ui/attendance/attendance_work_progress.dart';
+import 'package:hodour/src/ui/attendance/attendance_overview.dart';
 import 'package:hodour/src/ui/attendance/attendance_monitoring.dart';
 import 'package:hodour/src/ui/home/home_header.dart';
 import 'package:hodour/src/shared/app_assets.dart';
+import 'package:hodour/src/shared/widgets/privacy_policy_button.dart';
 import 'package:hodour/src/utils/utils.dart';
 import 'package:hodour/src/shared/widgets/toast/toast_card.dart';
 import 'attendance_test.dart' show policyJson, recordJson, FakeCapture;
@@ -334,6 +336,48 @@ void main() {
       client.close(force: true);
     });
     return container;
+  }
+
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets('privacy policy opens before and after login ($locale)',
+        (tester) async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+          (call) async {
+        calls.add(call);
+        return call.method == 'launch';
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null));
+      final container = await pumpApp(tester, locale: locale);
+      final policy = find.byType(PrivacyPolicyButton);
+      await tester.ensureVisible(policy);
+      await tester.tap(policy);
+      await tester.pumpAndSettle();
+      expect(calls.last.method, 'launch');
+      expect(calls.last.arguments['url'],
+          'https://wallstreetwsc.com/hodour-hr/privacy-policy');
+      await tester.enterText(find.byType(TextFormField).first, 'test-company');
+      await tester.enterText(
+          find.byType(TextFormField).at(1), 'employee@example.test');
+      await tester.enterText(find.byType(TextFormField).last, 'password');
+      final signIn = find.widgetWithText(AppButton, 'auth.sign_in'.tr());
+      await tester.ensureVisible(signIn);
+      await tester.tap(signIn);
+      await tester.pumpAndSettle();
+      container.read(appRouterProvider).goNamed('account');
+      await container.read(themeModeProvider.notifier).setDark(true);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(policy);
+      expect(policy, findsOneWidget);
+      await tester.tap(policy);
+      await tester.pumpAndSettle();
+      expect(calls.map((call) => call.method), ['launch', 'launch']);
+      expect(calls.last.arguments['url'],
+          'https://wallstreetwsc.com/hodour-hr/privacy-policy');
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('push tap opens authenticated inbox', (tester) async {
@@ -885,6 +929,49 @@ void main() {
     });
   });
 
+  testWidgets('Sales explains the workflow and reveals optional filters',
+      (tester) async {
+    final container = await pumpApp(tester,
+        savedSession: true,
+        salesSubmit: true,
+        salesReview: true,
+        salesActivities: [salesJson()]);
+    container.read(appRouterProvider).goNamed('sales');
+    await tester.pumpAndSettle();
+    expect(find.text('Record completed work'), findsOneWidget);
+    expect(find.text('sales.workflow_hint'.tr()), findsOneWidget);
+    expect(find.text('All activity types'), findsNothing);
+    final filters = find.text('Filter activities');
+    await tester.ensureVisible(filters);
+    await tester.tap(filters);
+    await tester.pumpAndSettle();
+    expect(find.text('All activity types'), findsOneWidget);
+    expect(find.text('All statuses'), findsOneWidget);
+    final returned = find.text('Show returned activities');
+    await tester.ensureVisible(returned);
+    await tester.tap(returned);
+    await tester.pumpAndSettle();
+    expect(container.read(salesListProvider(false)).status, 'returned');
+    expect(find.text('Returned for correction'), findsWidgets);
+    final clear = find.text('Clear activity filters');
+    await tester.ensureVisible(clear);
+    await tester.tap(clear);
+    await tester.pumpAndSettle();
+    expect(container.read(salesListProvider(false)).status, isNull);
+    container.read(appRouterProvider).goNamed('teamSales');
+    await tester.pumpAndSettle();
+    container
+        .read(salesListProvider(true).notifier)
+        .filter(employeeId: 'employee-a');
+    await tester.pumpAndSettle();
+    final previous = find.byTooltip('Previous month');
+    await tester.ensureVisible(previous);
+    await tester.tap(previous);
+    await tester.pumpAndSettle();
+    expect(container.read(salesListProvider(true)).employeeId, 'employee-a');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'Sales separates verified results and review work and labels target progress',
       (tester) async {
@@ -914,6 +1001,9 @@ void main() {
         salesActivities: [salesJson()],
         salesPerformance: performance);
     container.read(appRouterProvider).goNamed('sales');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Performance breakdown & targets'));
+    await tester.tap(find.text('Performance breakdown & targets'));
     await tester.pumpAndSettle();
     final verifiedCard = find
         .ancestor(
@@ -978,6 +1068,9 @@ void main() {
       container.read(appRouterProvider).goNamed('sales');
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('sales.results_details'.tr()));
+      await tester.tap(find.text('sales.results_details'.tr()));
+      await tester.pumpAndSettle();
       expect(find.text('sales.target_not_set'.tr()), findsOneWidget);
       expect(find.text('sales.unavailable'.tr()), findsNothing);
       final scroll = find
@@ -1181,7 +1274,13 @@ void main() {
     final dock = find.byType(AppBottomNavBar);
     final element = tester.element(dock);
     final position = tester.getTopLeft(dock);
-    for (final label in ['Check-In', 'Requests', 'Account', 'Sales', 'Home']) {
+    for (final label in [
+      'Attendance',
+      'Requests',
+      'Account',
+      'Sales',
+      'Home'
+    ]) {
       await tester.tap(find.byTooltip(label));
       await tester.pump();
       expect(find.byType(AppBottomNavBar), findsOneWidget);
@@ -1341,6 +1440,9 @@ void main() {
     container.read(appRouterProvider).goNamed('attendance');
     await tester.pumpAndSettle();
     expect(find.byType(AttendanceLocationStatus), findsNothing);
+    expect(find.text('Location details'), findsNothing);
+    container.read(appRouterProvider).goNamed('home');
+    await tester.pumpAndSettle();
     expect(find.text('Location details'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -1495,17 +1597,13 @@ void main() {
         ..failure = const CaptureFailure('attendance.location_off',
             recovery: CaptureRecovery.locationSettings);
       final posts = <String>[];
-      final container = await pumpApp(tester,
+      await pumpApp(tester,
           savedSession: true,
           locale: Locale(checkOut ? 'ar' : 'en'),
           attendanceRecords: checkOut ? [recordJson()] : [],
           capture: capture, onRequest: (request) {
         if (request.method == 'POST') posts.add(request.path);
       });
-      if (checkOut) {
-        container.read(appRouterProvider).goNamed('attendance');
-        await tester.pumpAndSettle();
-      }
       final label =
           (checkOut ? 'attendance.check_out' : 'attendance.check_in').tr();
       await tester.ensureVisible(find.text(label));
@@ -1643,17 +1741,109 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      'attendance uses server workday and closed workdays cannot repeat check-in',
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets(
+        'attendance overview keeps capture exclusively on Home in $locale',
+        (tester) async {
+      final container = await pumpApp(tester,
+          savedSession: true, locale: locale, attendanceRecords: []);
+      expect(find.bySemanticsLabel('attendance.check_in'.tr()), findsOneWidget);
+      await container.read(themeModeProvider.notifier).setDark(true);
+      container.read(appRouterProvider).goNamed('attendance');
+      await tester.pumpAndSettle();
+      expect(find.text('attendance.check_in'.tr()), findsNothing);
+      expect(find.text('attendance.check_out'.tr()), findsNothing);
+      expect(find.text('attendance.completed_time'.tr()), findsOneWidget);
+      expect(find.text('attendance.no_records'.tr()), findsOneWidget);
+      final overview =
+          tester.widget<AttendanceOverview>(find.byType(AttendanceOverview));
+      expect(overview.totals.visits, 0);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      container.read(appRouterProvider).goNamed('home');
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('attendance.check_in'.tr()), findsOneWidget);
+    });
+  }
+
+  for (final pending in [false, true]) {
+    testWidgets('attendance correction respects existing request: $pending',
+        (tester) async {
+      final container = await pumpApp(tester,
+          savedSession: true,
+          attendanceRecords: [recordJson(date: '2026-10-04')],
+          requests: pending
+              ? [
+                  {
+                    ...requestJson(),
+                    'type': 'forgotten-check-out',
+                    'attendanceId': 'owned-record',
+                  }
+                ]
+              : []);
+      container.read(appRouterProvider).goNamed('attendance');
+      await tester.pumpAndSettle();
+      expect(
+          tester
+              .widget<AttendanceOverview>(find.byType(AttendanceOverview))
+              .totals
+              .completedTime,
+          Duration.zero);
+      final correction = find.text('Forgotten check-out');
+      if (pending) {
+        expect(correction, findsNothing);
+        final notice = find.text('Correction awaiting review');
+        await tester.ensureVisible(notice);
+        expect(notice.hitTestable(), findsOneWidget);
+      } else {
+        await tester.ensureVisible(correction);
+        await tester.tap(correction);
+        await tester.pumpAndSettle();
+        expect(
+            tester
+                .widget<NewRequestScreen>(find.byType(NewRequestScreen))
+                .attendanceId,
+            'owned-record');
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('attendance overview totals follow the selected history filter',
       (tester) async {
-    final container = await pumpApp(tester, savedSession: true);
+    final container =
+        await pumpApp(tester, savedSession: true, attendanceRecords: [
+      recordJson(closed: true),
+      {
+        ...recordJson(date: '2026-10-04', closed: true),
+        'id': 'late-record',
+        'status': 'Late'
+      },
+    ]);
     container.read(appRouterProvider).goNamed('attendance');
     await tester.pumpAndSettle();
-    expect(find.text('Current workday'), findsOneWidget);
-    expect(find.text('2026-10-05'), findsNWidgets(2));
-    expect(find.text('Africa/Cairo'), findsNWidgets(2));
-    expect(find.textContaining('This workday is complete'), findsOneWidget);
+    AttendanceOverview overview() =>
+        tester.widget<AttendanceOverview>(find.byType(AttendanceOverview));
+    expect(overview().totals.visits, 2);
+    expect(overview().totals.completedTime, const Duration(hours: 12));
+    expect(overview().totals.lateArrivals, 1);
+    expect(find.text('Current workday'), findsNothing);
     expect(find.text('Check in'), findsNothing);
+    expect(find.text('Check out'), findsNothing);
+    await tester.ensureVisible(find.text('Filter records'));
+    await tester.tap(find.text('Filter records'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('All statuses'));
+    await tester.tap(find.text('All statuses'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Late').last);
+    await tester.pumpAndSettle();
+    expect(overview().filtered, isTrue);
+    expect(overview().totals.visits, 1);
+    expect(overview().totals.completedTime, const Duration(hours: 6));
+    expect(overview().totals.lateArrivals, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -1682,6 +1872,9 @@ void main() {
       (tester) async {
     final container = await pumpApp(tester, savedSession: true);
     container.read(appRouterProvider).goNamed('attendance');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Record details'));
+    await tester.tap(find.text('Record details'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('View evidence'));
     await tester.tap(find.text('View evidence'));
@@ -1754,7 +1947,10 @@ void main() {
     });
     container.read(appRouterProvider).goNamed('newRequest');
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Excuse'));
+    final typeSelector = find.byWidgetPredicate((widget) =>
+        widget is AppDropdown<String> && widget.label == 'requests.type'.tr());
+    await tester.tap(typeSelector);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Excuse').last);
     await tester.pumpAndSettle();
     expect(
@@ -1812,6 +2008,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(Directionality.of(tester.element(find.text('نوع الطلب'))),
         TextDirection.rtl);
+    expect(find.byType(RequestTypeCards), findsNothing);
+    expect(find.text('requests.from'.tr()).hitTestable(), findsOneWidget);
+    expect(find.text('requests.to'.tr()).hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1843,7 +2042,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('request type card opens the matching form', (tester) async {
+  testWidgets('request type card opens the matching form with dates in view',
+      (tester) async {
     final container = await pumpApp(tester, savedSession: true);
     container.read(appRouterProvider).goNamed('requests');
     await tester.pumpAndSettle();
@@ -1851,18 +2051,17 @@ void main() {
     await tester.ensureVisible(sick);
     await tester.tap(sick);
     await tester.pumpAndSettle();
-    expect(
-        tester
-            .widget<RequestTypeCards>(find.byType(RequestTypeCards))
-            .selectedType,
-        'sick');
-    expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
-    final cards = find.descendant(
-        of: find.byType(RequestTypeCards), matching: find.byType(AppCard));
-    final size = tester.getSize(cards.first);
-    for (final card in cards.evaluate()) {
-      expect(tester.getSize(find.byWidget(card.widget)), size);
-    }
+    expect(find.byType(RequestTypeCards), findsNothing);
+    final selector = find.byWidgetPredicate((widget) =>
+        widget is AppDropdown<String> && widget.label == 'requests.type'.tr());
+    expect(tester.widget<AppDropdown<String>>(selector).value, 'sick');
+    expect(find.text('requests.from'.tr()).hitTestable(), findsOneWidget);
+    expect(find.text('requests.to'.tr()).hitTestable(), findsOneWidget);
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('requests.types.excuse'.tr()).last);
+    await tester.pumpAndSettle();
+    expect(tester.widget<AppDropdown<String>>(selector).value, 'excuse');
     expect(tester.takeException(), isNull);
   });
 
