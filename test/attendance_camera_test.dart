@@ -107,6 +107,18 @@ void main() {
     await auth.changes.close();
     await directory.delete(recursive: true);
   });
+  Future<void> completeLatePhoto(WidgetTester tester, File file) async {
+    camera.photoWait!.complete(XFile(file.path));
+    await tester.pump();
+    await tester.runAsync(() async {
+      // Wait for filesystem cleanup rather than assuming CI finishes in 50 ms.
+      final timer = Stopwatch()..start();
+      while (await file.exists() && timer.elapsed < const Duration(seconds: 5)) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+  }
+
   Future<void> open(WidgetTester tester,
       {bool rtl = false, bool dark = false, double scale = 1}) async {
     SharedPreferences.setMockInitialValues({});
@@ -204,9 +216,7 @@ void main() {
     await tester.pumpAndSettle();
     final file = (await tester.runAsync(
         () => File('${directory.path}/late.jpg').writeAsBytes([1, 2, 3])))!;
-    camera.photoWait!.complete(XFile(file.path));
-    await tester.runAsync(
-        () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await completeLatePhoto(tester, file);
     await tester.pump();
     expect(camera.shots, 1);
     expect(returned, isNull);
@@ -223,9 +233,7 @@ void main() {
     await tester.pump();
     final file = (await tester.runAsync(() =>
         File('${directory.path}/dismissed.jpg').writeAsBytes([1, 2, 3])))!;
-    camera.photoWait!.complete(XFile(file.path));
-    await tester.runAsync(
-        () async => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await completeLatePhoto(tester, file);
     await tester.pumpAndSettle();
     expect(returned, isNull);
     expect(find.text('Open camera'), findsOneWidget);
