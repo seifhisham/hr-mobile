@@ -306,3 +306,21 @@ manual. After pushing this file, use Check for configuration files in Codemagic.
 The production backend URL is bundled publicly in the app. Confirm backend
 availability and complete iPhone permission/background-location/push checks
 before release. Windows checks cannot verify Xcode archive or signing.
+
+
+### External TestFlight only
+
+Start `ios-testflight-external` manually from `main` to upload the current app
+version to the external TestFlight group `hr external testing`. Ensure that group
+exists in App Store Connect and supply any required beta review information.
+Hodour's numeric App Store app ID is `6829324762`. The existing `Codemagic` Apple
+integration supplies signing and publishing credentials. The workflow reads the
+highest uploaded build number across App Store and TestFlight and increments it;
+do not run concurrent uploads for this app.
+
+This workflow submits only to TestFlight beta review. It explicitly disables
+App Store submission, cancellation of existing App Store submissions, and
+expiration of builds under TestFlight review. Leave the App Store version and
+its selected build unchanged. External testing starts only after Apple's beta
+review approval and completion of required TestFlight information. The app uses
+the production backend, so tester actions can affect real data.

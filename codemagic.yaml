@@ -41,6 +41,61 @@ workflows:
         submit_to_testflight: false
         submit_to_app_store: false
 
+  ios-testflight-external:
+    name: Hodour iOS external TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      vars:
+        APP_STORE_APPLE_ID: "6829324762"
+      flutter: 3.41.2
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.wallstreetwsc.hodour
+    scripts:
+      - name: Create application environment
+        script: |
+          printf '%s\n' 'API_BASE_URL=https://hr.wallstreetwsc.com/api' 'APP_STORE_COUNTRY=us' > .env
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Analyze Flutter code
+        script: flutter analyze
+      - name: Run Flutter tests
+        script: flutter test
+      - name: Install CocoaPods dependencies
+        script: cd ios && pod install
+      - name: Configure signing
+        script: xcode-project use-profiles
+      - name: Select next uploaded build number
+        script: |
+          set -euo pipefail
+          : "${APP_STORE_APPLE_ID:?Set Hodour's numeric App Store Connect app ID}"
+          latest=$(app-store-connect get-latest-build-number "$APP_STORE_APPLE_ID" --all-versions)
+          [[ "$latest" =~ ^[0-9]+$ ]] || { echo "Expected an integer App Store build number"; exit 1; }
+          echo "TESTFLIGHT_BUILD_NUMBER=$((latest + 1))" >> "$CM_ENV"
+      - name: Build external TestFlight IPA
+        script: |
+          flutter build ipa --release \
+            --build-number="$TESTFLIGHT_BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - hr external testing
+        expire_build_submitted_for_review: false
+        submit_to_app_store: false
+        cancel_previous_submissions: false
+
   ios-validation:
     name: Hodour iOS unsigned validation
     instance_type: mac_mini_m2
