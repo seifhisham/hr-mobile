@@ -109,14 +109,14 @@ void main() {
   });
   Future<void> completeLatePhoto(WidgetTester tester, File file) async {
     camera.photoWait!.complete(XFile(file.path));
-    await tester.pump();
-    await tester.runAsync(() async {
-      // Wait for filesystem cleanup rather than assuming CI finishes in 50 ms.
-      final timer = Stopwatch()..start();
-      while (await file.exists() && timer.elapsed < const Duration(seconds: 5)) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
+    // Pump cleanup continuations and wait for real filesystem work on CI.
+    final timer = Stopwatch()..start();
+    do {
+      await tester.pump();
+      if (!(await tester.runAsync(file.exists))!) return;
+      await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 10)));
+    } while (timer.elapsed < const Duration(seconds: 5));
   }
 
   Future<void> open(WidgetTester tester,
