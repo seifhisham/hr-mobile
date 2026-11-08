@@ -214,6 +214,13 @@
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "biometric_reason": "Unlock your saved Hodour session",
+    "biometric_locked": "Unlock with biometrics or sign in with your password. If biometrics are unavailable, use your password.",
+    "biometric_title": "Session locked",
+    "biometric_unlock": "Unlock with Face ID / fingerprint",
+    "biometric_password": "Sign out and use password",
+    "biometric_setting": "Face ID / fingerprint unlock",
+    "biometric_hint": "Unlock your saved session when the app restarts. Any biometric enrolled on this device can unlock it. Signing out requires your password next time.",
     "privacy_policy": "Privacy policy",
     "company_code": "Company code",
     "company_code_invalid": "Enter a company code: 2–63 letters, digits or hyphens.",

@@ -16,20 +16,34 @@ class SessionScreen extends ConsumerWidget {
       child: switch (session) {
         SessionUnavailable(:final failure) =>
           Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('auth.session_unavailable'.tr(),
+            Text(
+                (failure is BiometricFailure
+                        ? 'auth.biometric_title'
+                        : 'auth.session_unavailable')
+                    .tr(),
                 style: context.textTheme.titleLarge),
             SizedBox(height: AppSpacing.md.h),
             Semantics(
                 liveRegion: true,
-                child: Text(failure.message, textAlign: TextAlign.center)),
+                child: Text(
+                    failure is BiometricFailure
+                        ? failure.message.tr()
+                        : failure.message,
+                    textAlign: TextAlign.center)),
             SizedBox(height: AppSpacing.lg.h),
             AppButton(
-                label: 'account.retry'.tr(),
+                label: (failure is BiometricFailure
+                        ? 'auth.biometric_unlock'
+                        : 'account.retry')
+                    .tr(),
                 onPressed: action.isLoading
                     ? null
                     : () => ref.read(sessionProvider.notifier).restore()),
             AppTextButton(
-                label: 'account.sign_out'.tr(),
+                label: (failure is BiometricFailure
+                        ? 'auth.biometric_password'
+                        : 'account.sign_out')
+                    .tr(),
                 onPressed: action.isLoading
                     ? null
                     : () => ref.read(authControllerProvider.notifier).logout()),

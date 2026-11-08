@@ -4,6 +4,7 @@ import '../../theme/theme_toggle_button.dart';
 import '../notifications/notification_button.dart';
 import '../auth/providers/session_provider.dart';
 import '../auth/providers/auth_provider.dart';
+import 'biometric_setting.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
@@ -182,6 +183,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                                 ])),
                       ],
                       SizedBox(height: AppSpacing.lg.h),
+                      const BiometricSetting(),
+                      SizedBox(height: AppSpacing.md.h),
                       const PrivacyPolicyButton(),
                       SizedBox(height: AppSpacing.md.h),
                       AppButton(

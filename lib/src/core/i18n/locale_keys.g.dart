@@ -229,6 +229,13 @@ class CodegenLoader extends AssetLoader{
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "biometric_reason": "افتح جلستك المحفوظة في حضور",
+    "biometric_locked": "افتح باستخدام البصمة أو سجل الدخول بكلمة المرور. إذا لم تتوفر البصمة، استخدم كلمة المرور.",
+    "biometric_title": "الجلسة مقفلة",
+    "biometric_unlock": "فتح ببصمة الوجه أو الإصبع",
+    "biometric_password": "تسجيل الخروج واستخدام كلمة المرور",
+    "biometric_setting": "فتح ببصمة الوجه أو الإصبع",
+    "biometric_hint": "افتح جلستك المحفوظة عند إعادة تشغيل التطبيق. أي بصمة مسجلة على هذا الجهاز يمكنها فتح الجلسة. بعد تسجيل الخروج ستحتاج إلى كلمة المرور.",
     "privacy_policy": "سياسة الخصوصية",
     "company_code": "رمز الشركة",
     "company_code_invalid": "أدخل رمز الشركة: من 2 إلى 63 حرفاً إنجليزياً أو رقماً أو شرطة.",
@@ -761,6 +768,13 @@ static const Map<String,dynamic> _en = {
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "biometric_reason": "Unlock your saved Hodour session",
+    "biometric_locked": "Unlock with biometrics or sign in with your password. If biometrics are unavailable, use your password.",
+    "biometric_title": "Session locked",
+    "biometric_unlock": "Unlock with Face ID / fingerprint",
+    "biometric_password": "Sign out and use password",
+    "biometric_setting": "Face ID / fingerprint unlock",
+    "biometric_hint": "Unlock your saved session when the app restarts. Any biometric enrolled on this device can unlock it. Signing out requires your password next time.",
     "privacy_policy": "Privacy policy",
     "company_code": "Company code",
     "company_code_invalid": "Enter a company code: 2–63 letters, digits or hyphens.",

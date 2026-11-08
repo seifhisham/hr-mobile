@@ -1,0 +1,7 @@
+{
+  "file_generated_by": "Hodour Crashlytics configuration",
+  "purpose": "FirebaseAppID & ProjectID for Crashlytics symbol uploads",
+  "GOOGLE_APP_ID": "1:1087877373989:ios:e45beb00bc50cdacda9fcc",
+  "FIREBASE_PROJECT_ID": "wsc-hr-ebe11",
+  "GCM_SENDER_ID": "1087877373989"
+}

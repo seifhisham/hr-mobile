@@ -81,3 +81,7 @@ final class CaptureFailure extends Failure {
   const CaptureFailure(super.message, {this.recovery = CaptureRecovery.retry});
   final CaptureRecovery recovery;
 }
+
+final class BiometricFailure extends Failure {
+  const BiometricFailure() : super('auth.biometric_locked');
+}

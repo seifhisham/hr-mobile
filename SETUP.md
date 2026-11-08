@@ -324,3 +324,37 @@ expiration of builds under TestFlight review. Leave the App Store version and
 its selected build unchanged. External testing starts only after Apple's beta
 review approval and completion of required TestFlight information. The app uses
 the production backend, so tester actions can affect real data.
+
+
+## Firebase Crashlytics (Android and iOS)
+
+Crashlytics uses the existing `wsc-hr-ebe11` Firebase project. Android keeps
+`com.wsc.hodour`; iOS keeps `com.wallstreetwsc.hodour`. Do not replace either
+platform's app ID when re-running FlutterFire configuration.
+
+`CrashReportingService` initializes Firebase before application configuration.
+The existing Flutter framework, platform, and guarded-zone error handlers forward
+uncaught errors as fatal reports while retaining local logging. Reporting failures
+do not prevent startup or recursively report themselves. No account identifiers,
+request bodies, passwords, tokens, or custom breadcrumbs are added to reports.
+Collection is disabled by default in the native configuration and enabled at
+runtime for profile/release builds; debug builds disable it.
+
+Android applies the Crashlytics Gradle plugin for mapping-file uploads. On macOS,
+run `flutter pub get`, then `cd ios && pod install`, and open `Runner.xcworkspace`.
+The Runner target bundles `GoogleService-Info.plist` and has a final Crashlytics
+symbol-upload phase using `ios/firebase_app_id_file.json`. Keep that phase last
+if CocoaPods adds other build phases. Xcode profile/release builds must generate
+dSYMs. Debug and simulator builds skip symbol upload.
+
+To confirm delivery, install a release build on a test device and follow the
+[official test-crash instructions](https://firebase.google.com/docs/crashlytics/flutter/get-started#force-test-crash).
+Temporarily call `FirebaseCrashlytics.instance.crash()` after Crashlytics has
+initialized, with the debugger detached. Restart the app to upload the report,
+then check Firebase Console > Crashlytics for the matching Android or iOS app.
+Remove the temporary crash before distributing any build. No test-crash control
+is shipped in the app.
+
+For builds using `--obfuscate --split-debug-info`, retain the generated symbol
+files and upload them using the
+[Flutter symbolication instructions](https://firebase.google.com/docs/crashlytics/flutter/get-deobfuscated-reports).

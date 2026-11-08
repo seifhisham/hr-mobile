@@ -214,6 +214,13 @@
     "home_subtitle": "You have successfully completed the onboarding process."
   },
   "auth": {
+    "biometric_reason": "افتح جلستك المحفوظة في حضور",
+    "biometric_locked": "افتح باستخدام البصمة أو سجل الدخول بكلمة المرور. إذا لم تتوفر البصمة، استخدم كلمة المرور.",
+    "biometric_title": "الجلسة مقفلة",
+    "biometric_unlock": "فتح ببصمة الوجه أو الإصبع",
+    "biometric_password": "تسجيل الخروج واستخدام كلمة المرور",
+    "biometric_setting": "فتح ببصمة الوجه أو الإصبع",
+    "biometric_hint": "افتح جلستك المحفوظة عند إعادة تشغيل التطبيق. أي بصمة مسجلة على هذا الجهاز يمكنها فتح الجلسة. بعد تسجيل الخروج ستحتاج إلى كلمة المرور.",
     "privacy_policy": "سياسة الخصوصية",
     "company_code": "رمز الشركة",
     "company_code_invalid": "أدخل رمز الشركة: من 2 إلى 63 حرفاً إنجليزياً أو رقماً أو شرطة.",

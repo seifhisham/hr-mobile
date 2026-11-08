@@ -6,8 +6,21 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hodour/src/data/repositories/auth_repository_impl.dart';
 import 'package:hodour/src/services/auth_service.dart';
+import 'package:hodour/src/services/biometric_service.dart';
 import 'package:hodour/src/ui/auth/providers/session_provider.dart';
 import 'package:hodour/src/utils/failure.dart';
+
+class TestBiometrics extends BiometricService {
+  bool allowed = true;
+  int attempts = 0;
+  Completer<void>? pending;
+  @override
+  Future<void> authenticate() async {
+    attempts++;
+    if (pending != null) await pending!.future;
+    if (!allowed) throw const BiometricFailure();
+  }
+}
 
 class TestAdapter implements HttpClientAdapter {
   TestAdapter(this.respond);
@@ -64,6 +77,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Dio client;
   late AuthService auth;
+  late TestBiometrics biometrics;
   final requests = <RequestOptions>[];
   var mode = 'ok';
   setUp(() {
@@ -98,7 +112,8 @@ void main() {
       }
       return jsonResponse({'message': 'Done'}, 201);
     });
-    auth = AuthService(client: client)..initialize();
+    biometrics = TestBiometrics();
+    auth = AuthService(client: client, biometrics: biometrics)..initialize();
   });
   tearDown(() {
     auth.dispose();
@@ -125,7 +140,8 @@ void main() {
     expect(requests.first.data, {
       'workspace': 'test-company',
       'email': 'employee@example.test',
-      'password': ' password with spaces '
+      'password': ' password with spaces ',
+      'persistent': true
     });
     expect(requests.first.headers.containsKey('Authorization'), isFalse);
     expect(requests[1].uri.path, '/api/auth/me');
@@ -165,6 +181,116 @@ void main() {
     mode = 'ok';
     await session.restore();
     expect(session.state, isA<SessionAuthenticated>());
+  });
+  test('restart restores a token issued by persistent login', () async {
+    await login();
+    final restartedClient = Dio(BaseOptions(baseUrl: client.options.baseUrl))
+      ..httpClientAdapter = TestAdapter((options) {
+        expect(options.headers['Authorization'], 'Bearer opaque-test-token');
+        return jsonResponse(options.path == '/auth/me' ? profile : schedules);
+      });
+    final restarted = AuthService(client: restartedClient)..initialize();
+    addTearDown(restarted.dispose);
+    addTearDown(() => restartedClient.close(force: true));
+    expect((await restarted.getCurrentUser()).isRight(), isTrue);
+  });
+  test('server errors preserve token; protected 401 clears without retry',
+      () async {
+    await login();
+    requests.clear();
+    client.httpClientAdapter = TestAdapter((options) {
+      requests.add(options);
+      return jsonResponse({'message': 'Unavailable'}, 503);
+    });
+    expect((await auth.getCurrentUser()).isLeft(), isTrue);
+    expect(await savedToken(), 'opaque-test-token');
+    requests.clear();
+    client.httpClientAdapter = TestAdapter((options) {
+      requests.add(options);
+      return jsonResponse({'message': 'Revoked'}, 401);
+    });
+    await expectLater(
+        client.get<void>('/attendance'), throwsA(isA<DioException>()));
+    expect(requests, hasLength(1));
+    expect(await savedToken(), isNull);
+  });
+  test('opt-in requires biometric success and stores no password', () async {
+    await login();
+    biometrics.allowed = false;
+    expect((await auth.setBiometricEnabled(true)).isLeft(), isTrue);
+    expect(await auth.biometricEnabled(), isFalse);
+    biometrics.allowed = true;
+    expect((await auth.setBiometricEnabled(true)).isRight(), isTrue);
+    expect(await auth.biometricEnabled(), isTrue);
+    expect(await const FlutterSecureStorage().readAll(), {
+      AuthService.tokenKey: 'opaque-test-token',
+      BiometricService.enabledKey: 'true',
+    });
+    expect((await auth.setBiometricEnabled(false)).isRight(), isTrue);
+    expect(await auth.biometricEnabled(), isFalse);
+  });
+  test(
+      'locked startup sends no requests until biometric success; cancellation retains token',
+      () async {
+    FlutterSecureStorage.setMockInitialValues({
+      AuthService.tokenKey: 'restored-token',
+      BiometricService.enabledKey: 'true',
+    });
+    biometrics.allowed = false;
+    final result = await auth.getCurrentUser();
+    expect(result.fold((failure) => failure, (_) => null),
+        isA<BiometricFailure>());
+    expect(requests, isEmpty);
+    expect(await savedToken(), 'restored-token');
+    biometrics.allowed = true;
+    expect((await auth.getCurrentUser()).isRight(), isTrue);
+    expect(requests.first.path, '/auth/me');
+    expect(requests.first.headers['Authorization'], 'Bearer restored-token');
+    await auth.getCurrentUser();
+    expect(biometrics.attempts, 2);
+  });
+  test('locked logout revokes saved token and clears biometric preference',
+      () async {
+    FlutterSecureStorage.setMockInitialValues({
+      AuthService.tokenKey: 'restored-token',
+      BiometricService.enabledKey: 'true',
+    });
+    expect((await auth.logout()).isRight(), isTrue);
+    expect(requests.last.path, '/auth/logout');
+    expect(requests.last.headers['Authorization'], 'Bearer restored-token');
+    expect(await savedToken(), isNull);
+    expect(await auth.biometricEnabled(), isFalse);
+    expect(biometrics.attempts, 0);
+  });
+  test('revocation and password change remove biometric opt-in', () async {
+    await login();
+    await auth.setBiometricEnabled(true);
+    mode = 'expired';
+    await auth.getCurrentUser();
+    expect(await auth.biometricEnabled(), isFalse);
+    mode = 'ok';
+    await login();
+    await auth.setBiometricEnabled(true);
+    await auth.changePassword(
+        currentPassword: 'old', newPassword: 'new-password');
+    expect(await auth.biometricEnabled(), isFalse);
+    expect(await savedToken(), isNull);
+  });
+  test('logout during biometric prompt cannot restore old session', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      AuthService.tokenKey: 'restored-token',
+      BiometricService.enabledKey: 'true',
+    });
+    biometrics.pending = Completer<void>();
+    final restoring = auth.getCurrentUser();
+    while (biometrics.attempts == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    await auth.logout();
+    biometrics.pending!.complete();
+    expect((await restoring).isLeft(), isTrue);
+    expect(await savedToken(), isNull);
+    expect(requests.where((r) => r.path == '/auth/me'), isEmpty);
   });
   test(
       'changing account clears the old token even when new credentials are rejected',

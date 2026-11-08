@@ -5,12 +5,18 @@ import '../config/app_config.dart';
 import '../data/models/user_model.dart';
 import '../utils/utils.dart';
 import 'secure_storage_service.dart';
+import 'biometric_service.dart';
 import 'push_device_service.dart';
 
 class AuthService {
-  AuthService({Dio? client, PushDeviceService? pushDevices})
+  AuthService(
+      {Dio? client,
+      PushDeviceService? pushDevices,
+      BiometricService? biometrics})
       : _client = client,
-        _pushDevices = pushDevices;
+        _pushDevices = pushDevices,
+        _biometrics = biometrics ?? BiometricService.instance;
+  final BiometricService _biometrics;
   final PushDeviceService? _pushDevices;
   PushDeviceService get _push => _pushDevices ?? PushDeviceService.instance;
   static final AuthService instance = AuthService();
@@ -114,12 +120,13 @@ class AuthService {
         if (revision != _revision) {
           throw const ServerFailure('Session changed', statusCode: 401);
         }
-        final response = await _dio.post<Map<String, dynamic>>('/auth/login',
-            data: {
-              'workspace': code,
-              'email': email.trim().toLowerCase(),
-              'password': password
-            });
+        final response =
+            await _dio.post<Map<String, dynamic>>('/auth/login', data: {
+          'workspace': code,
+          'email': email.trim().toLowerCase(),
+          'password': password,
+          'persistent': true
+        });
         if (revision != _revision) {
           throw const ServerFailure('Session changed', statusCode: 401);
         }
@@ -138,6 +145,28 @@ class AuthService {
         return user;
       }, operation: 'auth.login', category: LogCategory.auth);
 
+  Future<bool> biometricEnabled() => _biometrics.isEnabled();
+
+  FutureEither<void> setBiometricEnabled(bool enabled) => runTask(() async {
+        final revision = _revision;
+        if (_token == null) {
+          throw const ServerFailure('Please sign in again.', statusCode: 401);
+        }
+        if (enabled) await _biometrics.authenticate();
+        await _persist(() => runTask(() async {
+              if (revision != _revision || _token == null) {
+                throw const ServerFailure('Please sign in again.',
+                    statusCode: 401);
+              }
+              await (enabled
+                      ? _storage.write(BiometricService.enabledKey, 'true')
+                      : _storage.delete(BiometricService.enabledKey))
+                  .then(_unwrap);
+            },
+                operation: 'auth.biometricPreference',
+                category: LogCategory.auth));
+      }, operation: 'auth.biometricPreference', category: LogCategory.auth);
+
   FutureEither<AppUser?> getCurrentUser() => runTask(() async {
         final revision = _revision;
         if (_token == null) {
@@ -145,6 +174,10 @@ class AuthService {
           if (revision != _revision) return null;
           final saved = await _storage.read(tokenKey).then(_unwrap);
           if (revision != _revision) return null;
+          if (saved != null) {
+            await _biometrics.unlock();
+            if (revision != _revision) return null;
+          }
           _token = saved;
         }
         if (_token == null) return null;
@@ -199,8 +232,9 @@ class AuthService {
       }, operation: 'auth.changePassword', category: LogCategory.auth);
 
   FutureEither<void> logout() => runTask(() async {
-        final token = _token;
         final previousRevision = _revision;
+        final token = _token ?? await _storage.read(tokenKey).then(_unwrap);
+        if (previousRevision != _revision) return;
         if (token != null) {
           try {
             await _push
@@ -230,10 +264,14 @@ class AuthService {
 
   Future<void> _clearSession() async {
     _push.sessionChanged(null);
+    _biometrics.reset();
     _token = null;
     _revision++;
     _changes.add(null);
-    await _persist(() => _storage.delete(tokenKey));
+    await _persist(() => runTask(() async {
+          await _storage.delete(tokenKey).then(_unwrap);
+          await _storage.delete(BiometricService.enabledKey).then(_unwrap);
+        }, operation: 'auth.clear', category: LogCategory.auth));
   }
 
   void dispose() {

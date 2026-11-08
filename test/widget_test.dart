@@ -32,6 +32,7 @@ import 'package:hodour/src/shared/widgets/ui/app/navigation/app_bottom_nav_bar.d
 import 'package:hodour/src/shared/widgets/ui/app/actions/app_text_button.dart';
 import 'package:hodour/src/data/repositories/auth_repository_impl.dart';
 import 'package:hodour/src/services/auth_service.dart';
+import 'package:hodour/src/services/biometric_service.dart';
 import 'package:hodour/src/ui/auth/providers/session_provider.dart';
 import 'package:hodour/src/routing/app_router.dart';
 import 'package:hodour/src/services/attendance_service.dart';
@@ -57,10 +58,11 @@ import 'package:hodour/src/services/sales_service.dart';
 import 'package:hodour/src/ui/sales/sales_provider.dart';
 import 'package:hodour/src/shared/widgets/ui/app/inputs/app_text_area.dart';
 import 'package:hodour/src/ui/attendance/attendance_evidence.dart';
+import 'package:hodour/src/data/models/attendance_model.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_session_test.dart'
-    show TestAdapter, jsonResponse, profile, schedules;
+    show TestAdapter, TestBiometrics, jsonResponse, profile, schedules;
 
 class _Translations extends AssetLoader {
   const _Translations(this.values);
@@ -82,9 +84,19 @@ class _AttachmentPicker extends RequestAttachmentService {
       }, operation: 'test.pick_attachment');
 }
 
+class _EvidenceService extends AttendanceService {
+  _EvidenceService(this.items);
+  final List<AttendanceEvidence> items;
+  @override
+  FutureEither<List<AttendanceEvidence>> loadEvidence(String id) async =>
+      Right(items);
+}
+
 void main() {
   Future<ProviderContainer> pumpApp(WidgetTester tester,
       {bool savedSession = false,
+      TestBiometrics? biometrics,
+      List<AttendanceEvidence>? evidence,
       bool noEmployee = false,
       bool offline = false,
       bool salesSubmit = false,
@@ -108,8 +120,12 @@ void main() {
     final notificationItems = List<Map<String, dynamic>>.of(notifications);
     final salesItems = List<Map<String, dynamic>>.of(salesActivities);
     SharedPreferences.setMockInitialValues({});
-    FlutterSecureStorage.setMockInitialValues(
-        savedSession ? {AuthService.tokenKey: 'stored-token'} : {});
+    FlutterSecureStorage.setMockInitialValues(savedSession
+        ? {
+            AuthService.tokenKey: 'stored-token',
+            if (biometrics != null) BiometricService.enabledKey: 'true'
+          }
+        : {});
     await EasyLocalization.ensureInitialized();
     final translations = <String, Map<String, dynamic>>{};
     await tester.runAsync(() async {
@@ -290,7 +306,8 @@ void main() {
       }
       return jsonResponse({'message': 'Signed out'}, 201);
     });
-    final service = AuthService(client: client)..initialize();
+    final service = AuthService(client: client, biometrics: biometrics)
+      ..initialize();
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -317,8 +334,9 @@ void main() {
                 .overrideWithValue(NotificationsService(client: client)),
             requestsRepositoryProvider
                 .overrideWithValue(RequestsService(client: client)),
-            attendanceEvidenceServiceProvider
-                .overrideWithValue(AttendanceService(client: client)),
+            attendanceEvidenceServiceProvider.overrideWithValue(evidence == null
+                ? AttendanceService(client: client)
+                : _EvidenceService(evidence)),
             attendanceRepositoryProvider
                 .overrideWithValue(AttendanceService(client: client)),
             authRepositoryProvider
@@ -1259,6 +1277,31 @@ void main() {
     expect(container.read(sessionProvider), isA<SessionAuthenticated>());
   });
 
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets('biometric lock hides personal data and offers retry ($locale)',
+        (tester) async {
+      final biometrics = TestBiometrics()..allowed = false;
+      final container = await pumpApp(tester,
+          savedSession: true, biometrics: biometrics, locale: locale);
+      await container.read(themeModeProvider.notifier).setDark(true);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      expect(container.read(sessionProvider), isA<SessionUnavailable>());
+      expect(find.text('Test Employee'), findsNothing);
+      expect(find.byType(AppBottomNavBar), findsNothing);
+      expect(
+          find.text(
+              locale.languageCode == 'en' ? 'Session locked' : 'الجلسة مقفلة'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      biometrics.allowed = true;
+      await tester.tap(find.byType(AppButton).first);
+      await tester.pumpAndSettle();
+      expect(container.read(sessionProvider), isA<SessionAuthenticated>());
+    });
+  }
+
   testWidgets('stored session stays recoverable when validation is offline',
       (tester) async {
     final container = await pumpApp(tester, savedSession: true, offline: true);
@@ -1868,6 +1911,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets('evidence photo stays bounded with accessible close ($locale)',
+        (tester) async {
+      final container =
+          await pumpApp(tester, savedSession: true, locale: locale, evidence: [
+        AttendanceEvidence(
+            event: 'check-in',
+            latitude: 30.023073,
+            longitude: 31.528126,
+            accuracyMeters: 20.5,
+            distanceMeters: 8.3,
+            capturedAt: DateTime.utc(2026, 11, 8, 8, 12),
+            submittedAt: DateTime.utc(2026, 11, 8, 8, 12),
+            photo: image.encodePng(image.Image(width: 40, height: 100)))
+      ]);
+      await container.read(themeModeProvider.notifier).setDark(true);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      container.read(appRouterProvider).goNamed('attendance');
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(Scaffold).last);
+      final record = AttendanceRecord.fromJson(recordJson(closed: true));
+      unawaited(showDialog<void>(
+          context: context,
+          builder: (_) => AttendanceEvidenceDialog(record: record)));
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      final photo = tester.getSize(find.byType(InteractiveViewer));
+      expect(
+          photo.height,
+          lessThan(tester.view.physicalSize.height /
+              tester.view.devicePixelRatio /
+              2));
+      final close =
+          find.byTooltip(locale.languageCode == 'en' ? 'Close' : 'إغلاق');
+      expect(close, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(close);
+      await tester.pumpAndSettle();
+      expect(find.byType(AttendanceEvidenceDialog), findsNothing);
+    });
+  }
+
   testWidgets('attendance evidence and status filtering remain accessible',
       (tester) async {
     final container = await pumpApp(tester, savedSession: true);
@@ -1880,7 +1966,7 @@ void main() {
     await tester.tap(find.text('View evidence'));
     await tester.pumpAndSettle();
     expect(find.text('No evidence available.'), findsOneWidget);
-    await tester.tap(find.text('Close'));
+    await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Filter records'));
     await tester.tap(find.text('Filter records'));

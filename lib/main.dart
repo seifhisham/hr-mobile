@@ -4,9 +4,11 @@ import 'src/imports/core_imports.dart';
 import 'src/imports/packages_imports.dart';
 import 'src/app.dart';
 import 'src/services/push_notification_service.dart';
+import 'src/services/crash_reporting_service.dart';
 
 Future<void> main() async {
   await runZonedGuarded(_bootstrap, (error, stackTrace) {
+    unawaited(CrashReportingService.instance.recordError(error, stackTrace));
     AppLogger.error(
       'Unhandled asynchronous error',
       error: error,
@@ -21,6 +23,8 @@ Future<void> _bootstrap() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   FlutterError.onError = (details) {
+    unawaited(CrashReportingService.instance
+        .recordError(details.exception, details.stack ?? StackTrace.current));
     AppLogger.error(
       'Flutter framework error',
       error: details.exception,
@@ -32,19 +36,22 @@ Future<void> _bootstrap() async {
   };
 
   ui.PlatformDispatcher.instance.onError = (error, stackTrace) {
+    unawaited(CrashReportingService.instance.recordError(error, stackTrace));
     AppLogger.error(
       'Unhandled platform error',
       error: error,
       stackTrace: stackTrace,
       category: LogCategory.app,
     );
-    return false;
+    return CrashReportingService.instance.enabled;
   };
 
   AppLogger.info('Application bootstrap started', category: LogCategory.app);
 
   await EasyLocalization.ensureInitialized();
   await dotenv.load(fileName: '.env', isOptional: true);
+
+  await CrashReportingService.instance.initialize();
 
   await AppConfig.init();
   AuthService.instance.initialize();

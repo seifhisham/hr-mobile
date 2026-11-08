@@ -71,7 +71,8 @@ void main() {
     expect(requests.first.data, {
       'workspace': 'alpha',
       'email': 'employee@example.test',
-      'password': ' secret '
+      'password': ' secret ',
+      'persistent': true
     });
     expect(await const FlutterSecureStorage().read(key: AuthService.tokenKey),
         'opaque-beta');
