@@ -63,6 +63,7 @@ class _NotificationRefreshState extends ConsumerState<NotificationRefresh>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
     _sync();
+    if (_foreground) PushNotificationService.instance.resume();
     if (_foreground && ref.read(sessionProvider).userOrNull != null) {
       PushDeviceService.instance.resume();
       ref.read(notificationsProvider.notifier).refresh();
@@ -83,6 +84,7 @@ class _NotificationRefreshState extends ConsumerState<NotificationRefresh>
     ref.listen(sessionProvider.select((s) => s.userOrNull?.sessionIdentity),
         (previous, next) {
       _sync();
+      if (next != null) PushNotificationService.instance.resume();
       if (previous != null && previous != next) {
         _pushOpenPending = false;
         PushNotificationService.instance.takePendingOpen();

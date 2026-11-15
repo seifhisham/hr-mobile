@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,6 +84,7 @@ void main() {
     auth = AuthService(client: client, pushDevices: push)..initialize();
   });
   tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
     auth.dispose();
     push.dispose();
     client.close(force: true);
@@ -110,6 +112,22 @@ void main() {
     final another = PushDeviceService(client: client, enabled: true);
     addTearDown(another.dispose);
     expect(await another.installationId(), id);
+  });
+
+  test('iOS registers when token arrives before or after session', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    await push.tokenChanged(firstToken);
+    await login();
+    expect(getPosts().single.data['platform'], 'ios');
+    expect(getPosts().single.headers['Authorization'], 'Bearer session-1');
+    await auth.logout();
+    await login();
+    final beforeToken = getPosts().length;
+    await push.tokenChanged(secondToken);
+    await flushPush();
+    expect(getPosts().length, beforeToken + 1);
+    expect(getPosts().last.data['platform'], 'ios');
+    expect(getPosts().last.data['token'], secondToken);
   });
 
   test('authenticated restoration registers saved FCM token', () async {

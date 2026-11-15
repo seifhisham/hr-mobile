@@ -399,6 +399,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				APS_ENVIRONMENT = production;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wallstreetwsc.hodour;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -578,6 +580,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				APS_ENVIRONMENT = development;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wallstreetwsc.hodour;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -600,6 +604,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				APS_ENVIRONMENT = production;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wallstreetwsc.hodour;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";

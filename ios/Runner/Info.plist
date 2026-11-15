@@ -13,7 +13,7 @@
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>While attendance is open, report your location in the background to confirm office attendance and warn about the return deadline. Tracking stops after checkout or sign-out.</string>
     <key>UIBackgroundModes</key>
-    <array><string>location</string></array>
+    <array><string>location</string><string>fetch</string><string>remote-notification</string></array>
     <key>NSCameraUsageDescription</key>
     <string>Take a fresh photo of your location as attendance evidence.</string>
     <key>NSPhotoLibraryUsageDescription</key>

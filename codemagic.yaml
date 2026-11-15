@@ -39,6 +39,13 @@ workflows:
           flutter build ipa --release \
             --build-number="$APP_STORE_BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
+      - name: Verify production push signing
+        script: |
+          set -euo pipefail
+          app=$(find build/ios/archive -path '*/Products/Applications/Runner.app' -type d -print -quit)
+          test -n "$app"
+          test "$(codesign -d --entitlements :- "$app" 2>/dev/null | plutil -extract aps-environment raw -o - -)" = production
+          test "$(security cms -D -i "$app/embedded.mobileprovision" | plutil -extract Entitlements.aps-environment raw -o - -)" = production
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/archive/*.xcarchive
@@ -92,6 +99,13 @@ workflows:
           flutter build ipa --release \
             --build-number="$TESTFLIGHT_BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
+      - name: Verify production push signing
+        script: |
+          set -euo pipefail
+          app=$(find build/ios/archive -path '*/Products/Applications/Runner.app' -type d -print -quit)
+          test -n "$app"
+          test "$(codesign -d --entitlements :- "$app" 2>/dev/null | plutil -extract aps-environment raw -o - -)" = production
+          test "$(security cms -D -i "$app/embedded.mobileprovision" | plutil -extract Entitlements.aps-environment raw -o - -)" = production
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/archive/*.xcarchive

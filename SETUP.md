@@ -278,14 +278,16 @@ Admin keys into the app. Run `flutter pub get`, then `cd ios && pod install`.
 Open `Runner.xcworkspace` in Xcode and select your Apple development team/signing
 for `com.wallstreetwsc.hodour`. The iOS deployment target is 15.0 to match the installed
 Firebase Core SDK. Build with Xcode, or return to the repository root and use
-`flutter build ios` once signing is configured. iOS push/APNs setup is still
-deferred; Android push configuration does not enable iOS notifications.
+`flutter build ios` once signing is configured. Enable Push Notifications for
+the App ID and use an App Store provisioning profile with
+`aps-environment=production`. The TestFlight and App Store workflows verify
+that the signed archive and embedded profile carry this entitlement.
 
 ## Android Firebase Cloud Messaging
 
 See [FCM-ANDROID.md](FCM-ANDROID.md) for Firebase Console device-token tests,
 foreground/background behavior, and the remaining backend integration. Android
-push is enabled independently of the deferred iOS/APNs setup.
+push is enabled independently of iOS/APNs setup.
 
 ## Codemagic iOS release
 

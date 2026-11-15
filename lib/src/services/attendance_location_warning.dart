@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 import '../utils/utils.dart';
 import 'attendance_location_source.dart';
 import 'push_notification_service.dart';
@@ -12,7 +13,8 @@ class AttendanceLocationWarning {
   static const _id = 150;
 
   Future<void> _initialize() {
-    if (PushNotificationService.supported) {
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        PushNotificationService.supported) {
       return PushNotificationService.instance.initializeLocalNotifications();
     }
     return _initializing ??= _plugin

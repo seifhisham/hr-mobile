@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../config/app_config.dart';
 import '../utils/utils.dart';
 import 'secure_storage_service.dart';
@@ -12,8 +13,25 @@ class PushDeviceService {
   PushDeviceService({Dio? client, bool? enabled})
       : _client = client,
         enabled = enabled ??
-            (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
+            (!kIsWeb &&
+                (defaultTargetPlatform == TargetPlatform.android ||
+                    defaultTargetPlatform == TargetPlatform.iOS));
   static final instance = PushDeviceService();
+  static Future<void> diagnostic(String step,
+      {bool? present, int? status, String? code}) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    String build;
+    try {
+      build = (await PackageInfo.fromPlatform()).buildNumber;
+    } catch (_) {
+      build = 'unavailable';
+    }
+    debugPrint('push build=$build step=$step'
+        '${present == null ? '' : ' present=${present ? 'yes' : 'no'}'}'
+        '${status == null ? '' : ' status=$status'}'
+        '${code == null ? '' : ' code=$code'}');
+  }
+
   final Dio? _client;
   final bool enabled;
   Dio get _dio => _client ?? AppConfig.dio;
@@ -119,19 +137,23 @@ class PushDeviceService {
       if (generation != _generation) return false;
       _hasBinding = true;
       try {
-        await _dio.post<void>('/push/devices',
+        final response = await _dio.post<void>('/push/devices',
             data: {
               'deviceId': device,
               'token': token,
-              'platform': 'android',
+              'platform': defaultTargetPlatform == TargetPlatform.iOS
+                  ? 'ios'
+                  : 'android',
             },
             options: Options(
                 extra: {'expectedSessionRevision': _revision},
                 sendTimeout: const Duration(seconds: 5),
                 receiveTimeout: const Duration(seconds: 5)));
+        await diagnostic('registration', status: response.statusCode);
         return true;
       } on DioException catch (error) {
         status = error.response?.statusCode;
+        await diagnostic('registration', status: status, code: error.type.name);
         final seconds =
             int.tryParse(error.response?.headers.value('retry-after') ?? '');
         if (seconds != null) retryAfter = Duration(seconds: max(0, seconds));

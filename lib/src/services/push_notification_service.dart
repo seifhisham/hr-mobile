@@ -17,7 +17,8 @@ class PushNotificationService {
   PushNotificationService();
   static final instance = PushNotificationService();
   static bool get supported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || _isIos);
+  static bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
   static const channel = AndroidNotificationChannel(
       'hodour_push', 'Hodour notifications',
       importance: Importance.high);
@@ -26,6 +27,8 @@ class PushNotificationService {
   Stream<bool> get events => _events.stream;
   Future<void>? _localInitializing;
   bool _pendingOpen = false;
+  bool _iosRegistrationPending = false;
+  Future<void>? _iosRegistration;
   int _notificationId = 1000;
 
   bool takePendingOpen() {
@@ -56,19 +59,24 @@ class PushNotificationService {
       return;
     }
     try {
-      final app = await Firebase.initializeApp(
+      await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform);
-      if (kDebugMode) debugPrint('Firebase initialized: ${app.options.appId}');
       if (!supported) return;
-      FirebaseMessaging.onBackgroundMessage(androidPushBackgroundHandler);
-      await initializeLocalNotifications();
-      await _local
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()!
-          .createNotificationChannel(channel);
+      if (_isIos) {
+        await FirebaseMessaging.instance
+            .setForegroundNotificationPresentationOptions(
+                alert: true, badge: true, sound: true);
+      } else {
+        FirebaseMessaging.onBackgroundMessage(androidPushBackgroundHandler);
+        await initializeLocalNotifications();
+        await _local
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()!
+            .createNotificationChannel(channel);
+      }
       FirebaseMessaging.onMessage.listen((message) {
         _events.add(false);
-        unawaited(_showForeground(message));
+        if (!_isIos) unawaited(_showForeground(message));
       });
       FirebaseMessaging.onMessageOpenedApp.listen((_) => _opened());
       // The backend requires registration tokens; keep one registration flow.
@@ -76,7 +84,8 @@ class PushNotificationService {
       FirebaseMessaging.instance.onTokenRefresh.listen(
           (token) => unawaited(PushDeviceService.instance.tokenChanged(token)),
           onError: (Object error) => _failed(error));
-      final launch = await _local.getNotificationAppLaunchDetails();
+      final launch =
+          _isIos ? null : await _local.getNotificationAppLaunchDetails();
       if ((launch?.didNotificationLaunchApp ?? false) &&
           launch?.notificationResponse?.payload == 'fcm') {
         _opened();
@@ -84,11 +93,59 @@ class PushNotificationService {
       if (await FirebaseMessaging.instance.getInitialMessage() != null) {
         _opened();
       }
-      await FirebaseMessaging.instance.requestPermission();
+      final settings = await FirebaseMessaging.instance.requestPermission();
+      if (_isIos) {
+        _iosRegistrationPending =
+            settings.authorizationStatus == AuthorizationStatus.authorized ||
+                settings.authorizationStatus == AuthorizationStatus.provisional;
+        await PushDeviceService.diagnostic('permission',
+            present: _iosRegistrationPending);
+        resume();
+        return;
+      }
       // Keep compatible with the backend's registration-token contract.
       // ignore: deprecated_member_use
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) await PushDeviceService.instance.tokenChanged(token);
+    } catch (error) {
+      _failed(error);
+    }
+  }
+
+  void resume() {
+    if (!_iosRegistrationPending || _iosRegistration != null) return;
+    _iosRegistration =
+        _registerIos().whenComplete(() => _iosRegistration = null);
+  }
+
+  Future<void> _registerIos() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      var apnsPresent = false;
+      for (var attempt = 0; attempt < 8; attempt++) {
+        if (await messaging.getAPNSToken() != null) {
+          if (!apnsPresent) {
+            apnsPresent = true;
+            await PushDeviceService.diagnostic('apns', present: true);
+          }
+          // Keep compatible with the backend's registration-token contract.
+          // ignore: deprecated_member_use
+          final token = await messaging.getToken();
+          await PushDeviceService.diagnostic('firebase',
+              present: token != null);
+          if (token != null) {
+            await PushDeviceService.instance.tokenChanged(token);
+            _iosRegistrationPending = false;
+            return;
+          }
+        }
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      if (!apnsPresent) {
+        await PushDeviceService.diagnostic('apns', present: false);
+      }
+    } on FirebaseException catch (error) {
+      await PushDeviceService.diagnostic('firebase', code: error.code);
     } catch (error) {
       _failed(error);
     }
