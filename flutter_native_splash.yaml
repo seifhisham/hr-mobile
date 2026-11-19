@@ -1,6 +1,10 @@
+# Brand blue sampled from assets/images/app_logo.png; the white W sits on it
+# with no surrounding box. splash_logo.png is the W alone on a transparent
+# 960x960 canvas (kept inside the 640px circle Android 12+ crops to).
 flutter_native_splash:
-  color: "##183C35"
-  # image: assets/images/splash.png
-  # android_12:
-  #   image: assets/images/splash.png
-  #   icon_background_color: "##183C35"
+  color: "#2054AE"
+  image: assets/images/splash_logo.png
+  android_12:
+    color: "#2054AE"
+    image: assets/images/splash_logo.png
+    icon_background_color: "#2054AE"

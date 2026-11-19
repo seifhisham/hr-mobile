@@ -35,8 +35,8 @@ class EmployeeNavigation extends ConsumerWidget {
         if (hasEmployee)
           AppBottomNavItem(
               label: 'sales.title'.tr(),
-              icon: Icons.home_work_outlined,
-              activeIcon: Icons.home_work_rounded),
+              icon: Icons.trending_up_rounded,
+              activeIcon: Icons.trending_up_rounded),
       ],
     );
   }

@@ -2,6 +2,7 @@ import 'package:hodour/src/imports/imports.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/employee_request.dart';
 import '../../services/request_attachment_service.dart';
+import 'request_detail_widgets.dart' show requestTypeColor, requestTypeIcon;
 import 'requests_provider.dart';
 import '../auth/providers/session_provider.dart';
 
@@ -68,33 +69,10 @@ class RequestTypeCards extends StatelessWidget {
                                         : AppSpacing.sm + AppSpacing.ml),
                                 child: Column(children: [
                                   ExcludeSemantics(
-                                      child: Icon(
-                                          switch (type) {
-                                            'leave' =>
-                                              Icons.beach_access_outlined,
-                                            'sick' => Icons.sick_outlined,
-                                            'unpaid' => Icons.money_off_rounded,
-                                            'urgent' =>
-                                              Icons.priority_high_rounded,
-                                            'excuse' => Icons.more_time_rounded,
-                                            'mission' =>
-                                              Icons.work_outline_rounded,
-                                            'holiday' =>
-                                              Icons.event_available_outlined,
-                                            _ => Icons.logout_rounded,
-                                          },
+                                      child: Icon(requestTypeIcon(type),
                                           size: AppSpacing.xl,
-                                          color: switch (type) {
-                                            'leave' =>
-                                              context.appColors.warning,
-                                            'sick' ||
-                                            'urgent' =>
-                                              context.colors.error,
-                                            'unpaid' ||
-                                            'mission' =>
-                                              context.colors.primary,
-                                            _ => context.colors.tertiary,
-                                          })),
+                                          color:
+                                              requestTypeColor(context, type))),
                                   SizedBox(height: AppSpacing.md),
                                   SizedBox(
                                       height: labelHeight,

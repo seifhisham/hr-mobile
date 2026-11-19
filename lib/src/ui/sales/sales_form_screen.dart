@@ -2,6 +2,9 @@ import 'package:hodour/src/imports/imports.dart';
 import '../../data/models/sales_activity.dart';
 import '../auth/providers/session_provider.dart';
 import 'sales_provider.dart';
+import '../requests/request_detail_widgets.dart'
+    show RequestNotice, RequestNoticeTone;
+import 'sales_form_widgets.dart';
 import 'sales_widgets.dart';
 
 class SalesFormScreen extends ConsumerStatefulWidget {
@@ -145,40 +148,39 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
           int max = 120,
           bool money = false,
           bool multiline = false,
-          bool enabled = true}) =>
-      Padding(
-          padding: EdgeInsets.only(top: AppSpacing.md),
-          child: AppTextField(
-              key: ValueKey(key),
-              controller: _fields[key],
-              enabled: enabled,
-              label:
-                  '${label.tr()}${required ? ' *' : ' (${'sales.optional'.tr()})'}',
-              hint: key == 'currency' ? 'EGP' : null,
-              keyboardType: money
-                  ? const TextInputType.numberWithOptions(decimal: true)
-                  : multiline
-                      ? TextInputType.multiline
-                      : TextInputType.text,
-              maxLines: multiline ? 3 : 1,
-              validator: (value) {
-                final text = value?.trim() ?? '';
-                if (required && text.isEmpty) {
-                  return 'sales.errors.required'.tr();
-                }
-                if (text.length > max) {
-                  return 'sales.errors.max'.tr(namedArgs: {'max': '$max'});
-                }
-                if (key == 'value' &&
-                    !RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(text)) {
-                  return 'sales.errors.money'.tr();
-                }
-                if (key == 'currency' &&
-                    !RegExp(r'^[A-Z]{3}$').hasMatch(text)) {
-                  return 'sales.errors.currency'.tr();
-                }
-                return null;
-              }));
+          bool enabled = true,
+          IconData? icon}) =>
+      AppTextField(
+          key: ValueKey(key),
+          controller: _fields[key],
+          enabled: enabled,
+          // Only optional fields are flagged; everything else is required.
+          label: required ? label.tr() : '${label.tr()} (${'sales.optional'.tr()})',
+          hint: key == 'currency' ? 'EGP' : null,
+          prefixIcon: icon == null ? null : Icon(icon, size: 20),
+          keyboardType: money
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : multiline
+                  ? TextInputType.multiline
+                  : TextInputType.text,
+          maxLines: multiline ? 3 : 1,
+          validator: (value) {
+            final text = value?.trim() ?? '';
+            if (required && text.isEmpty) {
+              return 'sales.errors.required'.tr();
+            }
+            if (text.length > max) {
+              return 'sales.errors.max'.tr(namedArgs: {'max': '$max'});
+            }
+            if (key == 'value' && !RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(text)) {
+              return 'sales.errors.money'.tr();
+            }
+            if (key == 'currency' && !RegExp(r'^[A-Z]{3}$').hasMatch(text)) {
+              return 'sales.errors.currency'.tr();
+            }
+            return null;
+          });
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(sessionProvider).userOrNull;
@@ -220,6 +222,8 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
         mutation.pending == null &&
         (widget.id == null || _loaded != null);
     final employee = user.employee;
+    final deal = _kind == 'closed-deal';
+    final gap = SizedBox(height: AppSpacing.md);
     return AppScaffold(
         appBar: AppTopBar(
             title:
@@ -231,183 +235,249 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
         body: SafeArea(
             child: SingleChildScrollView(
                 padding: EdgeInsets.all(AppSpacing.lg),
-                child: Theme(
-                    data: Theme.of(context).copyWith(
-                        inputDecorationTheme: Theme.of(context)
-                            .inputDecorationTheme
-                            .copyWith(
-                                labelStyle: context.textTheme.bodyMedium
-                                    ?.copyWith(
-                                        color:
-                                            context.colors.onSurfaceVariant))),
-                    child: Form(
-                        key: _form,
-                        child:
-                            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                          SalesNotice(text: 'sales.form_hint'.tr()),
-                          SizedBox(height: AppSpacing.md),
+                child: Form(
+                    key: _form,
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           if (detail?.isLoading ?? false)
                             const Center(child: CircularProgressIndicator()),
                           if (detail?.value
                                   ?.fold<Failure?>((f) => f, (_) => null)
                               case final failure?) ...[
-                            Text(failure.message,
-                                style: TextStyle(color: context.colors.error)),
+                            RequestNotice(
+                                message: failure.message,
+                                tone: RequestNoticeTone.error),
+                            gap,
                             AppButton(
                                 label: 'sales.refresh'.tr(),
                                 onPressed: () => ref.invalidate(
                                     salesDetailProvider(widget.id!))),
+                            gap,
                           ],
                           if (item != null &&
                               _loaded != null &&
                               item.revision != _loaded!.revision) ...[
-                            SalesNotice(text: 'sales.changed'.tr()),
+                            RequestNotice(
+                                message: 'sales.changed'.tr(),
+                                tone: RequestNoticeTone.warning),
+                            SizedBox(height: AppSpacing.sm),
                             AppButton(
                                 label: 'sales.reload_activity'.tr(),
                                 variant: ButtonVariant.outline,
                                 onPressed: mutation.action.isLoading
                                     ? null
                                     : () => setState(() => _load(item))),
+                            gap,
                           ],
-                          if (!canEdit && !(detail?.isLoading ?? false))
-                            Text('sales.correction_unavailable'.tr()),
+                          if (!canEdit && !(detail?.isLoading ?? false)) ...[
+                            RequestNotice(
+                                message: 'sales.correction_unavailable'.tr(),
+                                tone: RequestNoticeTone.warning),
+                            gap,
+                          ],
                           const SalesMutationFeedback(),
                           if (employee != null &&
                               (widget.id == null || _loaded != null)) ...[
-                            AppCard(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                  Text('sales.activity_section'.tr(),
-                                      style: context.textTheme.titleLarge),
-                                  SizedBox(height: AppSpacing.md),
-                                  AppDropdown<String>(
-                                      label: 'sales.type'.tr(),
-                                      value: _kind,
-                                      enabled: enabled,
-                                      items: [
-                                        for (final kind in salesKinds)
-                                          AppDropdownItem(
-                                              value: kind,
-                                              label: salesKindLabel(kind)),
-                                      ],
-                                      onChanged: (v) {
-                                        if (v != null) _changeKind(v);
-                                      }),
-                                  SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                      'sales.kind_help.${_kind.replaceAll('-', '_')}'
-                                          .tr()),
-                                  SizedBox(height: AppSpacing.md),
-                                  AppDatePicker(
-                                      label: 'sales.activity_date'.tr(),
-                                      value: DateTime.tryParse(_date),
-                                      enabled: enabled,
-                                      firstDate:
-                                          DateTime.parse(employee.startDate),
-                                      lastDate: DateTime.parse(user.today),
-                                      onChanged: (date) => setState(() {
-                                            _date = salesDate(date);
-                                            if (_followUp != null &&
-                                                _followUp!.compareTo(_date) <
-                                                    0) {
-                                              _followUp = null;
-                                            }
-                                          })),
-                                  Text('sales.date_hint'
-                                      .tr(namedArgs: {'date': user.today})),
+                            Semantics(
+                                header: true,
+                                child: Text('sales.record_heading'.tr(),
+                                    style: context.textTheme.titleLarge
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.w700))),
+                            SizedBox(height: AppSpacing.xs),
+                            SalesFieldHint('sales.form_hint'.tr()),
+                            gap,
+                            SalesKindSelector(
+                                value: _kind,
+                                enabled: enabled,
+                                onChanged: _changeKind),
+                            SizedBox(height: AppSpacing.sm),
+                            SalesFieldHint(
+                                'sales.kind_help.${_kind.replaceAll('-', '_')}'
+                                    .tr()),
+                            gap,
+                            SalesFormSection(
+                                title: 'sales.activity_section'.tr(),
+                                children: [
                                   _field('clientName', 'sales.client',
-                                      required: true, enabled: enabled),
-                                  _field('projectName', 'sales.project',
-                                      enabled: enabled),
+                                      required: true,
+                                      enabled: enabled,
+                                      icon: Icons.person_outline_rounded),
+                                  Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        AppDatePicker(
+                                            label: 'sales.activity_date'.tr(),
+                                            value: DateTime.tryParse(_date),
+                                            enabled: enabled,
+                                            firstDate: DateTime.parse(
+                                                employee.startDate),
+                                            lastDate:
+                                                DateTime.parse(user.today),
+                                            onChanged: (date) => setState(() {
+                                                  _date = salesDate(date);
+                                                  if (_followUp != null &&
+                                                      _followUp!.compareTo(
+                                                              _date) <
+                                                          0) {
+                                                    _followUp = null;
+                                                  }
+                                                })),
+                                        SizedBox(height: AppSpacing.xs),
+                                        SalesFieldHint('sales.date_hint'
+                                            .tr(namedArgs: {'date': user.today})),
+                                      ]),
                                   _field('propertyReference', 'sales.property',
                                       required: _kind != 'meeting',
-                                      enabled: enabled),
-                                ])),
-                            SizedBox(height: AppSpacing.lg),
-                            AppCard(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                  Text(
-                                      (_kind == 'closed-deal'
-                                              ? 'sales.contract_section'
-                                              : 'sales.result_section')
-                                          .tr(),
-                                      style: context.textTheme.titleLarge),
-                                  if (_kind == 'closed-deal') ...[
+                                      enabled: enabled,
+                                      icon: Icons.location_on_outlined),
+                                  _field('projectName', 'sales.project',
+                                      enabled: enabled,
+                                      icon: Icons.apartment_outlined),
+                                ]),
+                            gap,
+                            SalesFormSection(
+                                title: (deal
+                                        ? 'sales.contract_section'
+                                        : 'sales.result_section')
+                                    .tr(),
+                                children: [
+                                  if (deal) ...[
                                     _field('dealReference',
                                         'sales.contract_reference',
-                                        required: true, enabled: enabled),
-                                    SizedBox(height: AppSpacing.md),
-                                    AppDropdown<String>(
-                                        label: 'sales.transaction_type'.tr(),
-                                        value: _transaction,
+                                        required: true,
                                         enabled: enabled,
-                                        items: [
-                                          for (final v in ['sale', 'lease'])
-                                            AppDropdownItem(
-                                                value: v,
-                                                label: 'sales.transactions.$v'
-                                                    .tr()),
-                                        ],
-                                        onChanged: (v) {
-                                          if (v != null) {
-                                            setState(() => _transaction = v);
-                                          }
-                                        }),
-                                    _field('value', 'sales.contract_value',
-                                        required: true,
-                                        money: true,
-                                        max: 20,
-                                        enabled: enabled),
-                                    _field('currency', 'sales.currency',
-                                        required: true,
-                                        max: 3,
-                                        enabled: enabled),
-                                    SizedBox(height: AppSpacing.sm),
-                                    Text('sales.value_hint'.tr()),
+                                        icon: Icons.receipt_long_outlined),
+                                    Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Text('sales.transaction_type'.tr(),
+                                              style: context
+                                                  .textTheme.labelMedium
+                                                  ?.copyWith(
+                                                      color: context.colors
+                                                          .onSurfaceVariant)),
+                                          SizedBox(height: AppSpacing.xs),
+                                          IgnorePointer(
+                                              ignoring: !enabled,
+                                              child: AppSegmentedControl<
+                                                      String>(
+                                                  segments: [
+                                                    for (final v in [
+                                                      'sale',
+                                                      'lease'
+                                                    ])
+                                                      AppSegment(
+                                                          value: v,
+                                                          label:
+                                                              'sales.transactions.$v'
+                                                                  .tr()),
+                                                  ],
+                                                  value: _transaction,
+                                                  onChanged: (v) => setState(
+                                                      () => _transaction = v))),
+                                        ]),
+                                    LayoutBuilder(builder: (context, box) {
+                                      final narrow = box.maxWidth < 300 ||
+                                          MediaQuery.textScalerOf(context)
+                                                  .scale(1) >
+                                              1.4;
+                                      final value = _field(
+                                          'value', 'sales.contract_value',
+                                          required: true,
+                                          money: true,
+                                          max: 20,
+                                          enabled: enabled,
+                                          icon: Icons.payments_outlined);
+                                      final currency = _field(
+                                          'currency', 'sales.currency',
+                                          required: true,
+                                          max: 3,
+                                          enabled: enabled);
+                                      return narrow
+                                          ? Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                  value,
+                                                  SizedBox(
+                                                      height: AppSpacing.md),
+                                                  currency
+                                                ])
+                                          : Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                  Expanded(
+                                                      flex: 2, child: value),
+                                                  SizedBox(
+                                                      width: AppSpacing.md),
+                                                  Expanded(child: currency),
+                                                ]);
+                                    }),
+                                    SalesFieldHint('sales.value_hint'.tr()),
                                   ] else ...[
                                     _field('purpose', 'sales.purpose',
-                                        required: true, enabled: enabled),
-                                    _field('outcome', 'sales.outcome',
-                                        required: true, enabled: enabled),
-                                    SizedBox(height: AppSpacing.md),
-                                    AppDatePicker(
-                                        label:
-                                            '${'sales.follow_up'.tr()} (${'sales.optional'.tr()})',
-                                        value: _followUp == null
-                                            ? DateTime.tryParse(_date)
-                                            : DateTime.tryParse(_followUp!),
-                                        firstDate: DateTime.tryParse(_date),
-                                        lastDate: DateTime(2100, 12, 31),
+                                        required: true,
                                         enabled: enabled,
-                                        onChanged: (date) => setState(
-                                            () => _followUp = salesDate(date))),
-                                    Text(
-                                        _followUp ?? 'sales.no_follow_up'.tr()),
-                                    if (_followUp != null)
-                                      AppTextButton(
-                                          label: 'sales.clear_follow_up'.tr(),
-                                          onPressed: enabled
-                                              ? () => setState(
-                                                  () => _followUp = null)
-                                              : null),
+                                        icon: Icons.flag_outlined),
+                                    _field('outcome', 'sales.outcome',
+                                        required: true,
+                                        enabled: enabled,
+                                        icon: Icons.task_alt_rounded),
+                                    Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          AppDatePicker(
+                                              label:
+                                                  '${'sales.follow_up'.tr()} (${'sales.optional'.tr()})',
+                                              // Empty until chosen, so it never
+                                              // looks like a date was picked.
+                                              value: _followUp == null
+                                                  ? null
+                                                  : DateTime.tryParse(
+                                                      _followUp!),
+                                              hint: 'sales.no_follow_up'.tr(),
+                                              firstDate:
+                                                  DateTime.tryParse(_date),
+                                              lastDate: DateTime(2100, 12, 31),
+                                              enabled: enabled,
+                                              onChanged: (date) => setState(
+                                                  () => _followUp =
+                                                      salesDate(date))),
+                                          if (_followUp != null)
+                                            Align(
+                                                alignment: AlignmentDirectional
+                                                    .centerStart,
+                                                child: AppTextButton(
+                                                    label:
+                                                        'sales.clear_follow_up'
+                                                            .tr(),
+                                                    onPressed: enabled
+                                                        ? () => setState(() =>
+                                                            _followUp = null)
+                                                        : null)),
+                                        ]),
                                   ],
                                   _field('notes', 'sales.notes',
                                       max: 1000,
                                       multiline: true,
-                                      enabled: enabled),
-                                ])),
-                            SizedBox(height: AppSpacing.lg),
-                            if (_validation != null)
+                                      enabled: enabled,
+                                      icon: Icons.notes_rounded),
+                                ]),
+                            gap,
+                            if (_validation != null) ...[
                               Semantics(
                                   liveRegion: true,
-                                  child: Text(_validation!.tr(),
-                                      style: TextStyle(
-                                          color: context.colors.error))),
+                                  child: RequestNotice(
+                                      message: _validation!.tr(),
+                                      tone: RequestNoticeTone.error)),
+                              gap,
+                            ],
                             AppButton(
                                 label: (widget.id == null
                                         ? 'sales.submit_for_review'
@@ -419,9 +489,6 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
                                             _loaded?.revision == item.revision)
                                     ? _save
                                     : null),
-                            SizedBox(height: AppSpacing.sm),
-                            Text('sales.required_hint'.tr(),
-                                style: context.textTheme.bodySmall),
                             if (mutation.action
                                 case RequestSuccess(:final data))
                               AppTextButton(
@@ -430,6 +497,6 @@ class _SalesFormScreenState extends ConsumerState<SalesFormScreen> {
                                       'salesActivityDetails',
                                       pathParameters: {'id': data.id})),
                           ],
-                        ]))))));
+                        ])))));
   }
 }

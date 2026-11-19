@@ -57,6 +57,7 @@ import 'package:hodour/src/ui/requests/requests_provider.dart';
 import 'package:hodour/src/services/sales_service.dart';
 import 'package:hodour/src/ui/sales/sales_provider.dart';
 import 'package:hodour/src/shared/widgets/ui/app/inputs/app_text_area.dart';
+import 'package:hodour/src/shared/widgets/ui/app/inputs/app_text_field.dart';
 import 'package:hodour/src/ui/attendance/attendance_evidence.dart';
 import 'package:hodour/src/data/models/attendance_model.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
@@ -453,17 +454,16 @@ void main() {
     await fill('clientName', 'Buyer');
     await fill('purpose', 'Meeting requirements');
     await fill('outcome', 'Interested in apartment');
-    final kind = find.byWidgetPredicate(
-        (w) => w is AppDropdown<String> && w.label == 'Activity type');
-    tester.widget<AppDropdown<String>>(kind).onChanged('closed-deal');
+    await tester.ensureVisible(find.text('Signed deal'));
+    await tester.tap(find.text('Signed deal'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('purpose')), findsNothing);
     await fill('propertyReference', 'Unit A12');
     await fill('dealReference', 'Lease-1');
     await fill('value', '12000.25');
-    final transaction = find.byWidgetPredicate(
-        (w) => w is AppDropdown<String> && w.label == 'Contract type');
-    tester.widget<AppDropdown<String>>(transaction).onChanged('lease');
+    await tester.ensureVisible(find.text('Lease'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lease'));
     await tester.pumpAndSettle();
     final submit = find.widgetWithText(AppButton, 'Submit for verification');
     await tester.ensureVisible(submit);
@@ -477,6 +477,37 @@ void main() {
     expect(find.text('Pending verification'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets(
+        'signed-deal form fits a small phone with large text (${locale.languageCode})',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final container = await pumpApp(tester,
+          savedSession: true, salesSubmit: true, locale: locale);
+      container.read(appRouterProvider).goNamed('newSalesActivity');
+      await tester.pumpAndSettle();
+      final deal = find.text('sales.kinds.closed_deal'.tr());
+      await tester.ensureVisible(deal);
+      await tester.pumpAndSettle();
+      await tester.tap(deal);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('value')), findsOneWidget);
+      expect(find.byKey(const ValueKey('currency')), findsOneWidget);
+      expect(find.byKey(const ValueKey('purpose')), findsNothing);
+      final scroll = find.byType(SingleChildScrollView).first;
+      for (var step = 0; step < 8; step++) {
+        await tester.drag(scroll, const Offset(0, -400));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
 
   testWidgets(
       'review-only manager can verify team sales with clear final-performance confirmation',
@@ -667,18 +698,18 @@ void main() {
     await tester.tap(find.byTooltip('Notifications'));
     await tester.pumpAndSettle();
     expect(find.text('Request approved'), findsOneWidget);
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.text('Unread (1)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mark as read'));
     await tester.pumpAndSettle();
     expect(find.text('You are all caught up.'), findsOneWidget);
     expect(container.read(notificationsProvider).inbox!.unreadCount, 0);
     expect(calls.where((r) => r.method == 'PATCH').single.data, isNull);
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.text('All'));
     await tester.pumpAndSettle();
     final before = calls.where((r) => r.path == '/requests/me').length;
-    await tester.ensureVisible(find.text('Open details'));
-    await tester.tap(find.text('Open details'));
+    await tester.ensureVisible(find.text('Request approved'));
+    await tester.tap(find.text('Request approved'));
     await tester.pumpAndSettle();
     expect(calls.where((r) => r.path == '/requests/me').length,
         greaterThan(before));
@@ -704,7 +735,7 @@ void main() {
         removeNotificationOnRead: true);
     await tester.tap(find.byTooltip('Notifications'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Open details'));
+    await tester.tap(find.text('Request approved'));
     await tester.pumpAndSettle();
     expect(
         find.text(
@@ -765,7 +796,7 @@ void main() {
       ]);
       await tester.tap(find.byTooltip('Notifications'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Open details'));
+      await tester.tap(find.text('Request approved'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('Department Colleague'), findsOneWidget);
@@ -845,7 +876,7 @@ void main() {
         notifications: [notificationJson(type: 'manager-review-required')]);
     await tester.tap(find.byTooltip('Notifications'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Open details'));
+    await tester.tap(find.text('Request approved'));
     await tester.pumpAndSettle();
     expect(find.byType(NotificationsScreen), findsOneWidget);
     expect(find.byType(DepartmentReviewsScreen), findsNothing);
@@ -876,7 +907,7 @@ void main() {
     await container.read(themeModeProvider.notifier).setDark(true);
     container.read(appRouterProvider).goNamed('notifications');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('فتح التفاصيل'));
+    await tester.tap(find.text('Request approved'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('توصيتك للموارد البشرية'), findsOneWidget);
@@ -947,7 +978,7 @@ void main() {
     });
   });
 
-  testWidgets('Sales explains the workflow and reveals optional filters',
+  testWidgets('Sales shows one record action, overview tiles and filter chips',
       (tester) async {
     final container = await pumpApp(tester,
         savedSession: true,
@@ -957,25 +988,25 @@ void main() {
     container.read(appRouterProvider).goNamed('sales');
     await tester.pumpAndSettle();
     expect(find.text('Record completed work'), findsOneWidget);
-    expect(find.text('sales.workflow_hint'.tr()), findsOneWidget);
+    // The old explanatory paragraph and filter dropdowns are gone.
+    expect(find.text('Filter activities'), findsNothing);
     expect(find.text('All activity types'), findsNothing);
-    final filters = find.text('Filter activities');
-    await tester.ensureVisible(filters);
-    await tester.tap(filters);
-    await tester.pumpAndSettle();
-    expect(find.text('All activity types'), findsOneWidget);
-    expect(find.text('All statuses'), findsOneWidget);
-    final returned = find.text('Show returned activities');
+    final returned = find.text('Returned');
     await tester.ensureVisible(returned);
     await tester.tap(returned);
     await tester.pumpAndSettle();
     expect(container.read(salesListProvider(false)).status, 'returned');
     expect(find.text('Returned for correction'), findsWidgets);
-    final clear = find.text('Clear activity filters');
-    await tester.ensureVisible(clear);
-    await tester.tap(clear);
+    final all = find.text('All').first;
+    await tester.ensureVisible(all);
+    await tester.tap(all);
     await tester.pumpAndSettle();
     expect(container.read(salesListProvider(false)).status, isNull);
+    final meetings = find.text('Client meeting');
+    await tester.ensureVisible(meetings);
+    await tester.tap(meetings);
+    await tester.pumpAndSettle();
+    expect(container.read(salesListProvider(false)).kind, 'meeting');
     container.read(appRouterProvider).goNamed('teamSales');
     await tester.pumpAndSettle();
     container
@@ -2077,6 +2108,113 @@ void main() {
     expect(container.read(requestsProvider).items.single.reason, '');
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets(
+        'excuse form has no salary-deduction text, offers quick minutes and fits a small phone (${locale.languageCode})',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final container =
+          await pumpApp(tester, savedSession: true, locale: locale);
+      container
+          .read(appRouterProvider)
+          .goNamed('newRequest', queryParameters: {'type': 'excuse'});
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Salary deduction'), findsNothing);
+      expect(find.textContaining('خصم الراتب'), findsNothing);
+      final quick = find.text('requests.minutes_short'
+          .tr(namedArgs: {'minutes': '60'}));
+      await tester.ensureVisible(quick);
+      await tester.pumpAndSettle();
+      await tester.tap(quick);
+      await tester.pumpAndSettle();
+      final minutes = find.byWidgetPredicate((w) =>
+          w is AppTextField && w.label == 'requests.duration'.tr());
+      expect(tester.widget<AppTextField>(minutes).controller!.text, '60');
+      final scroll = find.byType(SingleChildScrollView).first;
+      for (var step = 0; step < 8; step++) {
+        await tester.drag(scroll, const Offset(0, -400));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
+  for (final locale in [const Locale('en'), const Locale('ar')]) {
+    testWidgets(
+        'every request type has its own wording, guidance and file prompt (${locale.languageCode})',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final container =
+          await pumpApp(tester, savedSession: true, locale: locale);
+      const guided = {'sick', 'urgent', 'mission', 'unpaid', 'holiday'};
+      const namedFile = {'sick', 'mission'};
+      for (final type in [
+        'leave',
+        'sick',
+        'unpaid',
+        'urgent',
+        'excuse',
+        'mission',
+        'holiday',
+        'forgotten-check-out'
+      ]) {
+        final key = type.replaceAll('-', '_');
+        container
+            .read(appRouterProvider)
+            .goNamed('newRequest', queryParameters: {'type': type});
+        await tester.pumpAndSettle();
+        String text(String field) => 'requests.profiles.$key.$field'.tr();
+        expect(find.text(text('tagline')), findsOneWidget, reason: type);
+        if (type != 'excuse') {
+          expect(find.text(text('reason')), findsOneWidget, reason: type);
+        }
+        expect(find.text(text('notice')),
+            guided.contains(type) ? findsOneWidget : findsNothing,
+            reason: type);
+        if (type != 'forgotten-check-out') {
+          expect(find.text(text('file')),
+              namedFile.contains(type) ? findsOneWidget : findsNothing,
+              reason: type);
+        }
+        expect(tester.takeException(), isNull, reason: type);
+      }
+    });
+  }
+
+  testWidgets('date range shows how many days are being requested',
+      (tester) async {
+    final container = await pumpApp(tester, savedSession: true);
+    container
+        .read(appRouterProvider)
+        .goNamed('newRequest', queryParameters: {'type': 'sick'});
+    await tester.pumpAndSettle();
+    expect(find.text('1 day'), findsNothing);
+    for (final date in ['10/05/2026', '10/07/2026']) {
+      final field = find.text('Choose a date').first;
+      await tester.ensureVisible(field);
+      await tester.pumpAndSettle();
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Switch to input'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, date);
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('3 days'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

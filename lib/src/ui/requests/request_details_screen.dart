@@ -1,5 +1,5 @@
 import 'package:hodour/src/imports/imports.dart';
-import '../employee_navigation.dart';
+import 'request_detail_widgets.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import '../auth/providers/session_provider.dart';
 import '../../data/models/employee_request.dart';
@@ -84,12 +84,136 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen>
                   : 'requests.reason_invalid')
               .tr()
           : null;
+  List<Widget> _information(EmployeeRequest item) {
+    final attendance = item.attendance;
+    return [
+      if (item.from != null)
+        RequestFact(
+            icon: Icons.date_range_outlined,
+            label: 'requests.dates'.tr(),
+            value: '${item.from} – ${item.to}'),
+      if (item.durationMinutes != null)
+        RequestFact(
+            icon: Icons.timelapse_rounded,
+            label: 'requests.duration_label'.tr(),
+            value: 'requests.minutes_per_day'
+                .tr(namedArgs: {'minutes': '${item.durationMinutes}'})),
+      if (item.excuseType != null)
+        RequestFact(
+            icon: Icons.more_time_rounded,
+            label: 'requests.excuse_type'.tr(),
+            value:
+                'requests.excuse_types.${item.excuseType!.replaceAll('-', '_')}'
+                    .tr()),
+      if (item.shiftId != null)
+        RequestFact(
+            icon: Icons.schedule_rounded,
+            label: 'requests.shift'.tr(),
+            value: 'requests.assigned_shift'.tr()),
+      if (attendance != null) ...[
+        RequestFact(
+            icon: Icons.event_note_outlined,
+            label: 'requests.workday'.tr(),
+            value: '${attendance.workDate} · ${attendance.timezone}'),
+        RequestFact(
+            icon: Icons.login_rounded,
+            label: 'attendance.check_in'.tr(),
+            value: requestTime(attendance.checkIn, attendance.timezone)),
+        if (item.proposedCheckOut case final departure?)
+          RequestFact(
+              icon: Icons.logout_rounded,
+              label: 'requests.proposed_departure'.tr(),
+              value: requestTime(departure, attendance.timezone)),
+        RequestNotice(
+            message: 'requests.forgotten_notice'.tr(),
+            tone: RequestNoticeTone.warning),
+        SizedBox(height: AppSpacing.md),
+      ],
+      RequestReasonBlock(
+          label: 'requests.submitted_reason'.tr(),
+          text: item.reason.isEmpty ? 'requests.no_reason'.tr() : item.reason),
+    ];
+  }
+
+  List<Widget> _progress(EmployeeRequest item, String timezone) {
+    final colors = context.colors;
+    final hrColor = switch (item.status) {
+      'approved' => context.appColors.success,
+      'rejected' => colors.error,
+      _ => colors.onSurfaceVariant,
+    };
+    final stageColor = switch (item.managerStage) {
+      'approved' => context.appColors.success,
+      'rejected' => colors.error,
+      'pending' => context.appColors.warning,
+      _ => colors.onSurfaceVariant,
+    };
+    final review = item.managerReview;
+    final change = item.lastChange;
+    return [
+      RequestTimelineStep(
+          title: 'requests.step_submitted'.tr(),
+          headline: requestTime(item.submittedAt, timezone),
+          color: colors.primary,
+          icon: Icons.send_rounded),
+      RequestTimelineStep(
+          title: 'requests.manager_stage'.tr(),
+          headline: item.managerStage == null
+              ? 'requests.stage_unknown'.tr()
+              : 'requests.stages.${item.managerStage!.replaceAll('-', '_')}'
+                  .tr(),
+          color: stageColor,
+          icon: switch (item.managerStage) {
+            'approved' => Icons.check_rounded,
+            'rejected' => Icons.close_rounded,
+            'pending' => Icons.hourglass_top_rounded,
+            _ => Icons.remove_rounded,
+          },
+          lines: [
+            if (review != null && item.managerStage == review.status) ...[
+              review.by,
+              requestTime(review.at, timezone),
+              review.reason,
+            ],
+          ],
+          note: 'requests.manager_notice'.tr()),
+      RequestTimelineStep(
+          title: 'requests.hr_decision'.tr(),
+          headline: item.decidedBy ?? 'requests.awaiting_decision'.tr(),
+          color: hrColor,
+          icon: switch (item.status) {
+            'approved' => Icons.check_rounded,
+            'rejected' => Icons.close_rounded,
+            _ => Icons.hourglass_top_rounded,
+          },
+          lines: [
+            if (item.decidedAt case final at?) requestTime(at, timezone),
+            if (item.decisionReason case final reason?) reason,
+            if (item.salaryDeductionDays == null)
+              'requests.no_deduction'.tr()
+            else
+              'requests.deduction_days'
+                  .tr(namedArgs: {'days': '${item.salaryDeductionDays}'}),
+          ],
+          isLast: change == null),
+      if (change != null)
+        RequestTimelineStep(
+            title: 'requests.changes.${change.action}'.tr(),
+            headline: change.by,
+            color: context.appColors.info,
+            icon: Icons.history_rounded,
+            lines: [requestTime(change.at, timezone), change.reason],
+            isLast: true),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(_provider);
     final user = ref.watch(sessionProvider).userOrNull;
     final timezone = user?.timezone ?? 'UTC';
     final item = state.items.where((r) => r.id == widget.id).firstOrNull;
+    final gap = SizedBox(height: AppSpacing.md);
     return AppScaffold(
         resizeToAvoidBottomInset: !widget.sheet,
         appBar: widget.sheet ? null : AppTopBar(title: 'requests.details'.tr()),
@@ -120,215 +244,81 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen>
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (!widget.sheet)
-                              EmployeeHeading(
-                                  title: 'requests.details'.tr(),
-                                  subtitle: 'design.requests_hint'.tr(),
-                                  icon: Icons.description_outlined),
                             RequestFeedback(state: state),
                             if (state.data.isLoading &&
                                 state.previousItems == null)
                               const Center(child: CircularProgressIndicator()),
                             if (state.data case RequestFailure(:final failure))
-                              Text(failure.message),
+                              RequestNotice(
+                                  message: failure.message,
+                                  tone: RequestNoticeTone.error),
                             if (state.data
                                     is RequestSuccess<List<EmployeeRequest>> &&
                                 item == null)
-                              Text('requests.unavailable'.tr()),
+                              RequestNotice(
+                                  message: 'requests.unavailable'.tr()),
                             if (item != null) ...[
-                              if (widget.sheet)
-                                AppCard(
-                                    color: context.colors.primaryContainer,
+                              RequestSummaryCard(
+                                  type: item.type,
+                                  typeLabel: requestTypeLabel(item.type),
+                                  status: item.status,
+                                  statusLabel: requestStatusLabel(item.status),
+                                  submitted:
+                                      requestTime(item.submittedAt, timezone),
+                                  timezone: timezone,
+                                  employeeName:
+                                      widget.managed ? item.employeeName : null),
+                              gap,
+                              RequestPanel(
+                                  title: 'requests.information'.tr(),
+                                  icon: Icons.description_outlined,
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: _information(item))),
+                              gap,
+                              RequestPanel(
+                                  title: 'requests.progress'.tr(),
+                                  icon: Icons.timeline_rounded,
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: _progress(item, timezone))),
+                              if (item.attachments.isNotEmpty) ...[
+                                gap,
+                                RequestPanel(
+                                    title: 'requests.attachments'.tr(),
+                                    icon: Icons.attach_file_rounded,
                                     child: Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment.stretch,
                                         children: [
-                                          Text(item.employeeName,
-                                              style: context
-                                                  .textTheme.titleMedium
-                                                  ?.copyWith(
-                                                      color: context.colors
-                                                          .onPrimaryContainer)),
-                                          SizedBox(height: AppSpacing.sm),
-                                          Text(requestTypeLabel(item.type),
-                                              style: context
-                                                  .textTheme.headlineSmall
-                                                  ?.copyWith(
-                                                      color: context.colors
-                                                          .onPrimaryContainer)),
-                                          SizedBox(height: AppSpacing.md),
-                                          Container(
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal: AppSpacing.md,
-                                                  vertical: AppSpacing.xs),
-                                              decoration: BoxDecoration(
-                                                  color: context.colors.surface,
-                                                  borderRadius:
-                                                      AppBorders.full),
-                                              child: Text(
-                                                  requestStatusLabel(
-                                                      item.status),
-                                                  style: context
-                                                      .textTheme.labelLarge)),
+                                          for (final attachment
+                                              in item.attachments)
+                                            Padding(
+                                                padding: EdgeInsets.only(
+                                                    bottom: AppSpacing.sm),
+                                                child: RequestAttachmentButton(
+                                                    attachment: attachment)),
                                         ])),
-                              if (widget.managed && !widget.sheet)
-                                Text(item.employeeName,
-                                    style: context.textTheme.titleLarge),
-                              if (!widget.sheet)
-                                Text(requestTypeLabel(item.type),
-                                    style: context.textTheme.headlineSmall),
-                              if (!widget.sheet)
-                                Text(requestStatusLabel(item.status),
-                                    style: context.textTheme.titleLarge),
-                              SizedBox(height: AppSpacing.md.h),
-                              AppCard(
-                                  title: 'requests.submitted'.tr(),
-                                  leading: widget.sheet
-                                      ? Icon(Icons.description_outlined,
-                                          color: context.colors.primary)
-                                      : null,
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(requestTime(
-                                            item.submittedAt, timezone)),
-                                        Text(timezone,
-                                            style: context.textTheme.bodySmall
-                                                ?.copyWith(
-                                                    color: context.colors
-                                                        .onSurfaceVariant)),
-                                        SizedBox(height: AppSpacing.md),
-                                        if (item.from != null)
-                                          Text('${item.from} – ${item.to}'),
-                                        if (item.durationMinutes != null)
-                                          Text('requests.minutes_per_day'
-                                              .tr(namedArgs: {
-                                            'minutes': '${item.durationMinutes}'
-                                          })),
-                                        if (item.excuseType != null)
-                                          Text(
-                                              'requests.excuse_types.${item.excuseType!.replaceAll('-', '_')}'
-                                                  .tr()),
-                                        if (item.shiftId != null)
-                                          Text('requests.assigned_shift'.tr()),
-                                        if (item.attendance
-                                            case final attendance?) ...[
-                                          Text('requests.record_workday'.tr(
-                                              namedArgs: {
-                                                'date': attendance.workDate
-                                              })),
-                                          Text(
-                                              '${'attendance.check_in'.tr()}: ${requestTime(attendance.checkIn, attendance.timezone)}'),
-                                          if (item.proposedCheckOut
-                                              case final departure?)
-                                            Text(
-                                                '${'requests.proposed_departure'.tr()}: ${requestTime(departure, attendance.timezone)}'),
-                                          Text(attendance.timezone),
-                                          Text(
-                                              'requests.forgotten_notice'.tr()),
-                                        ],
-                                        SizedBox(height: AppSpacing.md),
-                                        const AppDivider(),
-                                        SizedBox(height: AppSpacing.sm),
-                                        Text('requests.submitted_reason'.tr(),
-                                            style:
-                                                context.textTheme.labelLarge),
-                                        SizedBox(height: AppSpacing.xs),
-                                        Text(item.reason.isEmpty
-                                            ? 'requests.no_reason'.tr()
-                                            : item.reason),
-                                      ])),
-                              SizedBox(height: AppSpacing.md.h),
-                              AppCard(
-                                  title: 'requests.manager_stage'.tr(),
-                                  color: widget.sheet
-                                      ? context.colors.secondaryContainer
-                                      : null,
-                                  leading: widget.sheet
-                                      ? Icon(Icons.fact_check_outlined,
-                                          color: context
-                                              .colors.onSecondaryContainer)
-                                      : null,
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.managerStage == null
-                                            ? 'requests.stage_unknown'.tr()
-                                            : 'requests.stages.${item.managerStage!.replaceAll('-', '_')}'
-                                                .tr()),
-                                        SizedBox(height: AppSpacing.sm),
-                                        if (item.managerReview
-                                            case final review?
-                                            when item.managerStage ==
-                                                review.status) ...[
-                                          Text(review.by),
-                                          Text(
-                                              requestTime(review.at, timezone)),
-                                          Text(review.reason),
-                                        ],
-                                        SizedBox(height: AppSpacing.sm),
-                                        Text('requests.manager_notice'.tr(),
-                                            style: context.textTheme.bodySmall),
-                                      ])),
-                              SizedBox(height: AppSpacing.md.h),
-                              AppCard(
-                                  title: 'requests.hr_decision'.tr(),
-                                  leading: widget.sheet
-                                      ? Icon(Icons.business_outlined,
-                                          color: context.colors.primary)
-                                      : null,
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.decidedBy ??
-                                            'requests.awaiting_decision'.tr()),
-                                        if (item.decidedAt case final at?)
-                                          Text(requestTime(at, timezone)),
-                                        if (item.decisionReason
-                                            case final reason?)
-                                          Text(reason),
-                                        Text(item.salaryDeductionDays == null
-                                            ? 'requests.no_deduction'.tr()
-                                            : 'requests.deduction_days'.tr(
-                                                namedArgs: {
-                                                    'days':
-                                                        '${item.salaryDeductionDays}'
-                                                  })),
-                                      ])),
-                              if (item.lastChange case final change?) ...[
-                                SizedBox(height: AppSpacing.md.h),
-                                AppCard(
-                                    title: 'requests.changes.${change.action}'
-                                        .tr(),
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(change.by),
-                                          Text(
-                                              requestTime(change.at, timezone)),
-                                          Text(change.reason)
-                                        ])),
-                              ],
-                              for (final attachment in item.attachments) ...[
-                                SizedBox(height: AppSpacing.md.h),
-                                RequestAttachmentButton(attachment: attachment),
                               ],
                               if (widget.managed &&
-                                  !item.canReview(user?.employee?.id))
-                                Text('requests.review_unavailable'.tr()),
+                                  !item.canReview(user?.employee?.id)) ...[
+                                gap,
+                                RequestNotice(
+                                    message: 'requests.review_unavailable'.tr(),
+                                    tone: RequestNoticeTone.warning),
+                              ],
                               if (widget.managed &&
                                   state.data is RequestSuccess<
                                       List<EmployeeRequest>> &&
                                   state.noticeKey !=
                                       'requests.review_unavailable' &&
                                   item.canReview(user?.employee?.id)) ...[
-                                SizedBox(height: AppSpacing.lg.h),
-                                AppCard(
+                                gap,
+                                RequestPanel(
                                     title: 'requests.recommendation'.tr(),
+                                    icon: Icons.fact_check_outlined,
                                     child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
@@ -353,19 +343,16 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen>
                                                 label:
                                                     'requests.recommend_$status'
                                                         .tr(),
-                                                variant: widget.sheet &&
-                                                        status == 'approved'
+                                                variant: status == 'approved'
                                                     ? ButtonVariant.primary
                                                     : ButtonVariant.outline,
-                                                prefixIcon: widget.sheet
-                                                    ? ExcludeSemantics(
-                                                        child: Icon(status ==
-                                                                'approved'
-                                                            ? Icons
-                                                                .check_circle_outline_rounded
-                                                            : Icons
-                                                                .cancel_outlined))
-                                                    : null,
+                                                prefixIcon: ExcludeSemantics(
+                                                    child: Icon(status ==
+                                                            'approved'
+                                                        ? Icons
+                                                            .check_circle_outline_rounded
+                                                        : Icons
+                                                            .cancel_outlined)),
                                                 onPressed: state.busy ||
                                                         state.pending != null
                                                     ? null
@@ -379,27 +366,44 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen>
                                         ])),
                               ],
                               if (!widget.managed && item.canWithdraw) ...[
-                                SizedBox(height: AppSpacing.lg.h),
-                                Form(
-                                    key: _form,
-                                    child: AppTextArea(
-                                        label: 'requests.withdraw_reason'.tr(),
-                                        controller: _reason,
-                                        validator: _validateReason,
-                                        maxLength: 500,
-                                        enabled: !state.busy &&
-                                            state.pending == null)),
-                                AppButton(
-                                    label: 'requests.withdraw'.tr(),
-                                    variant: ButtonVariant.outline,
-                                    isLoading: state.action.isLoading,
-                                    onPressed:
-                                        state.busy || state.pending != null
-                                            ? null
-                                            : () => _withdraw(item)),
+                                gap,
+                                RequestPanel(
+                                    title: 'requests.withdraw_section'.tr(),
+                                    icon: Icons.undo_rounded,
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Form(
+                                              key: _form,
+                                              child: AppTextArea(
+                                                  label:
+                                                      'requests.withdraw_reason'
+                                                          .tr(),
+                                                  controller: _reason,
+                                                  validator: _validateReason,
+                                                  maxLength: 500,
+                                                  enabled: !state.busy &&
+                                                      state.pending == null)),
+                                          SizedBox(height: AppSpacing.md),
+                                          AppButton(
+                                              label: 'requests.withdraw'.tr(),
+                                              variant: ButtonVariant.outline,
+                                              isLoading: state.action.isLoading,
+                                              onPressed: state.busy ||
+                                                      state.pending != null
+                                                  ? null
+                                                  : () => _withdraw(item)),
+                                        ])),
                               ],
-                              if (!widget.managed)
-                                Text('requests.correction_notice'.tr()),
+                              if (!widget.managed) ...[
+                                SizedBox(height: AppSpacing.md),
+                                Text('requests.correction_notice'.tr(),
+                                    style: context.textTheme.bodySmall
+                                        ?.copyWith(
+                                            color: context
+                                                .colors.onSurfaceVariant)),
+                              ],
                             ],
                           ])))),
         ])));

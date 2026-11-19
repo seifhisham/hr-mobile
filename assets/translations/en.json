@@ -1,6 +1,75 @@
 {
   "requests": {
     "submitted_reason": "Employee reason",
+    "information": "Request information",
+    "progress": "Progress",
+    "attachments": "Attachments",
+    "step_submitted": "Request submitted",
+    "dates": "Dates",
+    "duration_label": "Duration",
+    "shift": "Shift",
+    "workday": "Attendance workday",
+    "times_in": "Times shown in {timezone}",
+    "withdraw_section": "Need to cancel this request?",
+    "day_one": "1 day",
+    "day_other": "{count} days",
+    "profiles": {
+      "leave": {
+        "tagline": "Plan your time off.",
+        "dates": "Vacation dates",
+        "reason": "Vacation plans (5–500 characters)",
+        "hint": "e.g. Family trip"
+      },
+      "sick": {
+        "tagline": "Rest up. Tell us how long you'll be out.",
+        "dates": "Sick days",
+        "reason": "What's wrong? (5–500 characters)",
+        "hint": "e.g. Flu, the doctor advised rest",
+        "notice": "Attach your medical certificate if you have one. It helps the review.",
+        "file": "Add medical certificate"
+      },
+      "unpaid": {
+        "tagline": "Time away without pay.",
+        "dates": "Dates away",
+        "reason": "Why do you need unpaid leave? (5–500 characters)",
+        "hint": "e.g. Personal matter abroad",
+        "notice": "Pick the exact first and last day you will be away."
+      },
+      "urgent": {
+        "tagline": "Something came up and it can't wait.",
+        "dates": "Dates",
+        "reason": "What happened? (5–500 characters)",
+        "hint": "e.g. Family emergency",
+        "notice": "Describe what happened so it can be reviewed quickly."
+      },
+      "excuse": {
+        "tagline": "A few hours, not a full day.",
+        "dates": "Dates",
+        "reason": "Reason",
+        "hint": "e.g. Doctor appointment"
+      },
+      "mission": {
+        "tagline": "Work outside the office.",
+        "dates": "Mission dates",
+        "reason": "Mission details: where and why (5–500 characters)",
+        "hint": "e.g. Client site visit",
+        "notice": "Say where you are going and why, so the mission can be verified.",
+        "file": "Add supporting document"
+      },
+      "holiday": {
+        "tagline": "A personal day off.",
+        "dates": "Holiday dates",
+        "reason": "Occasion or reason (5–500 characters)",
+        "hint": "e.g. Family wedding",
+        "notice": "Name the occasion so the request can be reviewed."
+      },
+      "forgotten_check_out": {
+        "tagline": "Fix a check-out you missed.",
+        "dates": "Dates",
+        "reason": "Why was check-out missed? (5–500 characters)",
+        "hint": "e.g. Left right after a late meeting"
+      }
+    },
     "recommendation": "Your recommendation to HR",
     "review_unavailable": "This request is no longer available for your recommendation. It may have been reviewed, reassigned, or decided by HR.",
     "review_reason_invalid": "Use 5–500 trimmed characters for the recommendation reason.",
@@ -42,7 +111,9 @@
     "excuse_type": "Excuse type",
     "schedule_required": "Refresh your assigned schedule or contact HR before requesting an Excuse.",
     "excuse_allowance": "All Excuse types share 240 minutes and at most 3 pending/approved requests per calendar month. Minutes apply to every date; cross-month requests count in each month. Withdrawal or final rejection releases reservations; a manager rejection alone does not. The server checks availability.",
-    "deduction_policy": "Salary deduction: 1 day if approved, 3 if rejected. Confirm this policy with HR.",
+    "excuse_details": "Excuse details",
+    "reason_files": "Reason and attachments",
+    "minutes_short": "{minutes} min",
     "attachment_hint": "Optional: up to 3 PDF, PNG or JPEG files, at most 5 MB each.",
     "add_attachment": "Add attachment",
     "remove_attachment": "Remove attachment",
@@ -324,6 +395,18 @@
     "subtitle": "Updates about your requests and department reviews.",
     "unread_count": "{count} unread notifications",
     "unread_only": "Unread only",
+    "filter_all": "All",
+    "filter_unread": "Unread ({count})",
+    "category_requests": "Requests",
+    "category_attendance": "Attendance",
+    "category_other": "General",
+    "group_today": "Today",
+    "group_yesterday": "Yesterday",
+    "group_earlier": "Earlier",
+    "action_needed": "Needs your action",
+    "no_action": "Nothing needs your action right now.",
+    "no_results": "No notifications match these filters.",
+    "clear_filters": "Clear filters",
     "unread": "Unread",
     "read": "Read",
     "open": "Open details",
@@ -338,10 +421,12 @@
     "department_empty": "There are no department requests available to your account."
   },
   "sales": {
+      "filter_all": "All",
+      "returned_short": "Returned",
       "show_returned": "Show returned activities",
-      "empty_read_only_hint": "No activities recorded for this month. Choose another month to view your history.",
-      "empty_team_hint": "No team activities for this selection. Choose another month or team member.",
-      "empty_filtered_hint": "No activities match these filters. Clear the filters or choose another month.",
+      "empty_read_only_hint": "No activities recorded this month.",
+      "empty_team_hint": "No team activities for this selection.",
+      "empty_filtered_hint": "No activities match these filters.",
       "returned_team_action": "Returned work is awaiting employee corrections. Open an activity to see the review details.",
       "returned_action": "Action needed: open returned activities below, read the review reason, and resubmit your corrections.",
       "review_counts": "{pending} awaiting verification · {returned} returned",
@@ -373,10 +458,10 @@
     "title": "Sales",
     "subtitle": "Record completed work and follow your monthly progress.",
     "team_title": "Team sales reviews",
-    "team_hint": "Verify completed work or return it with a clear reason. Only verified activities count.",
+    "team_hint": "Verify completed work or return it with a reason.",
     "counting_hint": "Only verified activities count toward your monthly results. Pending and returned work stays in your history.",
     "register": "Record completed work",
-    "read_only": "Registration is currently disabled. You can still view your history and monthly results.",
+    "read_only": "Registration is off. You can still view your history and results.",
     "refresh_access": "Check sales access",
     "review_unavailable": "Team review access is unavailable. Check access again or contact HR.",
     "reporting_month": "Reporting month",
@@ -392,7 +477,7 @@
     "all_types": "All activity types",
     "all_statuses": "All statuses",
     "empty": "No matching activities",
-    "empty_hint": "Nothing recorded for this month yet. Use “Record completed work” above to submit your first activity.",
+    "empty_hint": "Nothing recorded this month yet.",
     "refresh": "Refresh sales",
     "verified_work": "Monthly overview",
     "meeting_total": "Meetings + viewings",
@@ -427,15 +512,15 @@
     "employee": "Employee",
     "details": "Activity details",
     "correct": "Correct activity",
-    "form_hint": "Record work that has already happened. Submission sends it for verification; it does not count yet.",
+    "form_hint": "Record work that already happened. It counts once verified.",
     "correction_unavailable": "You cannot register or correct this activity with your current access and its current status.",
     "reload_activity": "Load latest activity",
-    "activity_section": "Activity and client",
-    "date_hint": "Company today: {date}. Activity dates cannot be in the future.",
-    "contract_section": "Signed contract",
-    "result_section": "Result and next step",
+    "activity_section": "Client and property",
+    "date_hint": "Latest allowed date: {date}",
+    "contract_section": "Contract",
+    "result_section": "Result",
     "currency": "Currency",
-    "value_hint": "Enter the total signed value, including the full contracted lease value. Use up to two decimal places; do not enter a deposit or commission.",
+    "value_hint": "Total signed value (full lease value for leases). Not a deposit or commission.",
     "no_follow_up": "No follow-up date selected",
     "clear_follow_up": "Remove follow-up date",
     "optional": "Optional",
@@ -479,9 +564,9 @@
       "returned": "Read the review reason, correct the activity, and resubmit. It does not count until verified again."
     },
     "kind_help": {
-      "meeting": "A completed client meeting. Record its purpose and actual outcome.",
-      "viewing": "A completed property viewing. Include the property or unit; do not add a duplicate meeting for the same viewing.",
-      "closed_deal": "A signed sale or lease contract. Reservations and unsigned negotiations do not qualify."
+      "meeting": "A completed client meeting.",
+      "viewing": "A completed property viewing. Don't also add a meeting for it.",
+      "closed_deal": "A signed sale or lease. Reservations don't count."
     },
     "errors": {
       "date": "Choose a real activity date between your employment start and company today.",

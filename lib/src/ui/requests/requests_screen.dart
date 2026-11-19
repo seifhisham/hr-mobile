@@ -2,6 +2,7 @@ import 'package:hodour/src/imports/imports.dart';
 import '../auth/providers/session_provider.dart';
 import '../../data/models/employee_request.dart';
 import 'requests_provider.dart';
+import 'request_detail_widgets.dart';
 import 'request_widgets.dart';
 
 class RequestsScreen extends ConsumerStatefulWidget {
@@ -24,25 +25,14 @@ class _RequestCard extends StatelessWidget {
       'pending' => (appColors.warning, Icons.schedule_rounded),
       _ => (colors.onSurfaceVariant, Icons.remove_circle_outline_rounded),
     };
-    final icon = switch (item.type) {
-      'sick' => Icons.health_and_safety_outlined,
-      'mission' => Icons.work_outline_rounded,
-      'excuse' || 'forgotten-check-out' => Icons.more_time_rounded,
-      'urgent' => Icons.priority_high_rounded,
-      _ => Icons.event_available_rounded,
-    };
+    final days = requestDayCount(item.from, item.to);
     void open() =>
         context.pushNamed('requestDetails', pathParameters: {'id': item.id});
     return AppCard(
         onTap: open,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-                padding: EdgeInsets.all(AppSpacing.ms),
-                decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: AppBorders.lg),
-                child: Icon(icon, color: colors.onPrimaryContainer)),
+            RequestTypeBadge(type: item.type),
             SizedBox(width: AppSpacing.md),
             Expanded(
                 child: Text(requestTypeLabel(item.type),
@@ -72,7 +62,8 @@ class _RequestCard extends StatelessWidget {
                 child: Text(
                     item.from == null
                         ? 'requests.departure_request'.tr()
-                        : '${item.from} – ${item.to}',
+                        : '${item.from} – ${item.to}'
+                            '${days == null ? '' : ' · ${requestDaysLabel(days)}'}',
                     style: context.textTheme.bodyMedium)),
           ]),
           if (item.reason.isNotEmpty) ...[
