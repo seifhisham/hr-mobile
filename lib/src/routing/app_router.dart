@@ -14,6 +14,8 @@ import '../ui/sales/sales_screen.dart';
 import '../ui/sales/sales_form_screen.dart';
 import '../ui/sales/sales_details_screen.dart';
 import '../ui/employee_navigation.dart';
+import '../ui/admin/admin_dashboard_provider.dart';
+import '../ui/admin/admin_dashboard_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -39,14 +41,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppScaffold(
           extendBody: true,
-          bottomNavigationBar: EmployeeNavigation(
-              index: switch (state.uri.path) {
-            '/attendance' => 1,
-            AppRoutes.requests => 2,
-            AppRoutes.account => 3,
-            AppRoutes.sales => 4,
-            _ => 0,
-          }),
+          bottomNavigationBar: EmployeeNavigation(location: state.uri.path),
           body: child,
         ),
         routes: [
@@ -56,7 +51,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               pageBuilder: (context, state) =>
                   _workspacePage(state, const HomePage())),
           GoRoute(
-              path: '/attendance',
+              path: AppRoutes.attendance,
               name: 'attendance',
               pageBuilder: (context, state) =>
                   _workspacePage(state, const AttendanceScreen())),
@@ -65,6 +60,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               name: 'requests',
               pageBuilder: (context, state) =>
                   _workspacePage(state, const RequestsScreen())),
+          GoRoute(
+              path: AppRoutes.adminDashboard,
+              name: 'adminDashboard',
+              redirect: (context, state) =>
+                  ref.read(isAdminProvider) ? null : AppRoutes.home,
+              pageBuilder: (context, state) =>
+                  _workspacePage(state, const AdminDashboardScreen())),
           GoRoute(
               path: AppRoutes.account,
               name: 'account',

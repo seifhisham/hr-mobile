@@ -2,42 +2,79 @@ import 'package:hodour/src/imports/imports.dart';
 import '../theme/theme_toggle_button.dart';
 import 'notifications/notification_button.dart';
 import 'auth/providers/session_provider.dart';
+import 'admin/admin_dashboard_provider.dart';
 
+/// Bottom navigation for the workspace shell. Tabs depend on the account:
+/// admins get the company dashboard, employees with a profile get sales.
 class EmployeeNavigation extends ConsumerWidget {
-  const EmployeeNavigation({super.key, required this.index});
-  final int index;
+  const EmployeeNavigation({super.key, required this.location});
+
+  /// Current shell path, used to highlight the active tab.
+  final String location;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasEmployee = ref
         .watch(sessionProvider.select((s) => s.userOrNull?.employee != null));
-    return AppBottomNavBar(
-      featuredIndex: 0,
-      currentIndex: index == 4 && !hasEmployee ? 0 : index,
-      onTap: (value) => context.goNamed(
-          const ['home', 'attendance', 'requests', 'account', 'sales'][value]),
-      items: [
+    final isAdmin = ref.watch(isAdminProvider);
+    final tabs = <(String, String, AppBottomNavItem)>[
+      (
+        'home',
+        AppRoutes.home,
         AppBottomNavItem(
             label: 'home.home_title'.tr(),
             icon: Icons.home_outlined,
-            activeIcon: Icons.home_rounded),
+            activeIcon: Icons.home_rounded)
+      ),
+      (
+        'attendance',
+        AppRoutes.attendance,
         AppBottomNavItem(
             label: 'attendance.nav_label'.tr(),
             icon: Icons.calendar_month_outlined,
-            activeIcon: Icons.calendar_month_rounded),
+            activeIcon: Icons.calendar_month_rounded)
+      ),
+      (
+        'requests',
+        AppRoutes.requests,
         AppBottomNavItem(
             label: 'requests.title'.tr(),
             icon: Icons.description_outlined,
-            activeIcon: Icons.description_rounded),
+            activeIcon: Icons.description_rounded)
+      ),
+      if (isAdmin)
+        (
+          'adminDashboard',
+          AppRoutes.adminDashboard,
+          AppBottomNavItem(
+              label: 'admin.nav_label'.tr(),
+              icon: Icons.insights_outlined,
+              activeIcon: Icons.insights_rounded)
+        ),
+      (
+        'account',
+        AppRoutes.account,
         AppBottomNavItem(
             label: 'account.title'.tr(),
             icon: Icons.person_outline_rounded,
-            activeIcon: Icons.person_rounded),
-        if (hasEmployee)
+            activeIcon: Icons.person_rounded)
+      ),
+      if (hasEmployee)
+        (
+          'sales',
+          AppRoutes.sales,
           AppBottomNavItem(
               label: 'sales.title'.tr(),
               icon: Icons.trending_up_rounded,
-              activeIcon: Icons.trending_up_rounded),
-      ],
+              activeIcon: Icons.trending_up_rounded)
+        ),
+    ];
+    final current = tabs.indexWhere((tab) => tab.$2 == location);
+    return AppBottomNavBar(
+      featuredIndex: 0,
+      currentIndex: current < 0 ? 0 : current,
+      onTap: (value) => context.goNamed(tabs[value].$1),
+      items: [for (final tab in tabs) tab.$3],
     );
   }
 }

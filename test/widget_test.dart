@@ -35,6 +35,7 @@ import 'package:hodour/src/services/auth_service.dart';
 import 'package:hodour/src/services/biometric_service.dart';
 import 'package:hodour/src/ui/auth/providers/session_provider.dart';
 import 'package:hodour/src/routing/app_router.dart';
+import 'package:hodour/src/routing/app_routes.dart';
 import 'package:hodour/src/services/attendance_service.dart';
 import 'package:hodour/src/ui/attendance/attendance_provider.dart';
 import 'package:hodour/src/ui/attendance/attendance_work_progress.dart';
@@ -56,6 +57,8 @@ import 'package:hodour/src/services/requests_service.dart';
 import 'package:hodour/src/ui/requests/requests_provider.dart';
 import 'package:hodour/src/services/sales_service.dart';
 import 'package:hodour/src/ui/sales/sales_provider.dart';
+import 'package:hodour/src/services/admin_dashboard_service.dart';
+import 'package:hodour/src/ui/admin/admin_dashboard_provider.dart';
 import 'package:hodour/src/shared/widgets/ui/app/inputs/app_text_area.dart';
 import 'package:hodour/src/shared/widgets/ui/app/inputs/app_text_field.dart';
 import 'package:hodour/src/ui/attendance/attendance_evidence.dart';
@@ -99,6 +102,7 @@ void main() {
       TestBiometrics? biometrics,
       List<AttendanceEvidence>? evidence,
       bool noEmployee = false,
+      bool admin = false,
       bool offline = false,
       bool salesSubmit = false,
       bool salesReview = false,
@@ -255,8 +259,67 @@ void main() {
             {'token': 'new-token', 'user': profile['user']}, 201);
       }
       if (request.path == '/auth/me') {
-        return jsonResponse(
-            noEmployee ? {...profile, 'employee': null} : profile);
+        return jsonResponse(admin
+            ? {
+                ...profile,
+                'user': {
+                  ...profile['user'] as Map<String, dynamic>,
+                  'role': 'admin',
+                  'employeeId': null
+                },
+                'employee': null
+              }
+            : noEmployee
+                ? {...profile, 'employee': null}
+                : profile);
+      }
+      if (admin && request.path == '/attendance' && request.method == 'GET') {
+        final today = profile['today'] as String;
+        return jsonResponse([
+          for (final (id, status, late) in [
+            ('a', 'On time', false),
+            ('b', 'Late', true),
+            ('c', 'No record', false),
+          ])
+            {
+              'id': status == 'No record' ? null : 'visit-$id',
+              'employeeId': 'employee-$id',
+              'name': 'Employee with a fairly long name $id',
+              'department': 'Operations and logistics',
+              'branchName': 'Head office',
+              'workDate': today,
+              'checkIn':
+                  status == 'No record' ? null : '${today}T09:15:00.000Z',
+              'checkOut': null,
+              'status': status,
+              'late': late,
+              'hours': null,
+              'timezone': 'UTC',
+              'nationalId': '',
+              'location': status == 'Late' ? {'status': 'outside'} : null,
+            }
+        ]);
+      }
+      if (admin && request.path == '/employees') {
+        return jsonResponse([
+          for (final id in ['a', 'b', 'c'])
+            {
+              'id': 'employee-$id',
+              'name': 'Employee $id',
+              'department': 'Operations and logistics',
+              'role': 'employee',
+              'startDate': '2024-01-01',
+              'active': true,
+              'salesEnabled': id == 'a'
+            }
+        ]);
+      }
+      if (admin && request.path == '/requests' && request.method == 'GET') {
+        return ResponseBody.fromString(jsonEncode([requestJson()]), 200,
+            headers: {
+              Headers.contentTypeHeader: ['application/json'],
+              'x-total-count': ['12']
+            });
       }
       if (request.path == '/requests/me') return jsonResponse(requestItems);
       if (request.path == '/requests' && request.method == 'POST') {
@@ -329,6 +392,8 @@ void main() {
                   .overrideWithValue(attachmentPicker),
             salesRepositoryProvider
                 .overrideWithValue(SalesService(client: client)),
+            adminDashboardRepositoryProvider
+                .overrideWithValue(AdminDashboardService(client: client)),
             if (capture != null)
               attendanceCaptureProvider.overrideWithValue(capture),
             notificationsRepositoryProvider
@@ -398,6 +463,57 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  for (final locale in const [Locale('en'), Locale('ar')]) {
+    testWidgets(
+        'admin gets a dashboard tab with company analytics '
+        '(${locale.languageCode})', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final container = await pumpApp(tester,
+          savedSession: true, admin: true, locale: locale);
+      await tester.pumpAndSettle();
+      final label = 'admin.nav_label'.tr();
+      expect(find.text(label), findsOneWidget);
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(
+          container
+              .read(appRouterProvider)
+              .routeInformationProvider
+              .value
+              .uri
+              .path,
+          AppRoutes.adminDashboard);
+      expect(find.text('admin.today'.tr()), findsOneWidget);
+      // 2 of 3 scheduled employees checked in.
+      expect(find.text('67%'), findsWidgets);
+      await tester.scrollUntilVisible(
+          find.text('admin.requests_hint'.tr(namedArgs: {'count': '12'})),
+          300,
+          scrollable: find.byType(Scrollable).first);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('employees do not get the dashboard tab or route',
+      (tester) async {
+    final container = await pumpApp(tester, savedSession: true);
+    await tester.pumpAndSettle();
+    expect(find.text('admin.nav_label'.tr()), findsNothing);
+    container.read(appRouterProvider).go(AppRoutes.adminDashboard);
+    await tester.pumpAndSettle();
+    expect(
+        container
+            .read(appRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        AppRoutes.home);
+  });
 
   testWidgets('push tap opens authenticated inbox', (tester) async {
     final container = await pumpApp(tester, savedSession: true);
